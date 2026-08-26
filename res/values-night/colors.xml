@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 桌面小部件配色 (深色) -->
+    <color name="widget_bg">#FF201F24</color>
+    <color name="widget_stroke">#33FFFFFF</color>
+    <color name="widget_title">#FFE6E1E5</color>
+    <color name="widget_body">#FFFFFFFF</color>
+    <color name="widget_muted">#FF9E9E9E</color>
+    <color name="widget_primary">#FF7FA6FF</color>
+    <color name="widget_ok">#FF5BC47A</color>
+    <color name="widget_err">#FFFF8A6B</color>
+</resources>

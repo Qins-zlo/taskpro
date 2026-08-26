@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="io.taskpro"
+    android:versionCode="76"
+    android:versionName="7.65">
+
+    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="34" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+
+    <application
+        android:label="定时任务 Pro"
+        android:icon="@drawable/ic_launcher"
+        android:name="io.taskpro.App"
+        android:allowBackup="false"
+        android:usesCleartextTraffic="true">
+
+        <!-- 主界面 (原高级模式), 启动入口 -->
+        <activity android:name="io.taskpro.AdvActivity"
+            android:exported="true"
+            android:screenOrientation="unspecified"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- 基础模式 -->
+        <activity android:name="io.taskpro.MainActivity"
+            android:exported="false"
+            android:launchMode="singleTask" />
+
+        <receiver android:name="io.taskpro.AlarmReceiver" android:exported="false" />
+        <receiver android:name="io.taskpro.CronAlarmReceiver" android:exported="false" />
+        <receiver android:name="io.taskpro.BootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+        <receiver android:name="io.taskpro.WidgetProvider"
+            android:label="定时任务 Pro" android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info" />
+        </receiver>
+        <service android:name="io.taskpro.ExecService"
+            android:exported="false" android:stopWithTask="false" />
+        <provider android:name="io.taskpro.FileShareProvider"
+            android:exported="true"
+            android:authorities="io.taskpro.fileshare"
+            android:grantUriPermissions="true" />
+        <receiver android:name="io.taskpro.CheckReceiver" android:exported="false" />
+
+        <activity android:name="io.taskpro.AIActivity" android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+    </application>
+</manifest>

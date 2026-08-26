@@ -1,0 +1,94 @@
+#!/bin/sh
+# 定时任务Pro 构建脚本 (aarch64 兼容版)
+set -e
+APP=/root/taskpro_v732/taskpro
+SRC=$APP/src
+OUT=$APP/out
+DEX=$APP/dex
+GEN=$APP/gen
+ANDROID_JAR=/opt/android-sdk/platforms/android-34/android.jar
+AAPT2=/opt/android-sdk/build-tools/34.0.0/aapt2
+D8JAR=/opt/android-sdk/build-tools/34.0.0/lib/d8.jar
+APKSIGNER=/opt/android-sdk/build-tools/34.0.0/lib/apksigner.jar
+ZALIGN=/root/taskpro_v732/zipalign.py
+KEYSTORE=$APP/taskrun.keystore
+
+rm -rf $OUT $DEX 2>/dev/null; mkdir -p $OUT $DEX
+
+echo "[1/6] aapt2 compile"
+$AAPT2 compile -o $OUT/res.flata --dir $APP/res 2>/dev/null || true
+
+echo "[2/6] aapt2 link"
+$AAPT2 link -o $OUT/base.apk \
+  -I $ANDROID_JAR \
+  --manifest $APP/AndroidManifest.xml \
+  --java $GEN \
+  -A $APP/assets \
+  -0 gz \
+  $OUT/res.flata 2>/dev/null || {
+  echo "link fallback without assets"
+  $AAPT2 link -o $OUT/base.apk \
+    -I $ANDROID_JAR \
+    --manifest $APP/AndroidManifest.xml \
+    --java $GEN \
+    $OUT/res.flata 2>/dev/null
+}
+
+echo "[3/6] javac"
+find $SRC -name '*.java' > $OUT/sources.txt
+javac -d $DEX -cp $ANDROID_JAR -encoding UTF-8 \
+  -source 11 -target 11 \
+  @$OUT/sources.txt $GEN/io/taskpro/R.java 2>&1
+
+echo "[4/6] d8"
+java -cp $D8JAR com.android.tools.r8.D8 \
+  --lib $ANDROID_JAR \
+  --release \
+  --output $DEX \
+  $(find $DEX -name '*.class' 2>/dev/null)
+
+python3 - "$APP" <<'PY'
+import sys, zipfile
+app = sys.argv[1]
+with zipfile.ZipFile(app + "/out/base.apk", 'a', zipfile.ZIP_DEFLATED) as z:
+    z.write(app + "/dex/classes.dex", "classes.dex")
+print("classes.dex injected")
+PY
+
+echo "[5/6] add lib (STORED)"
+python3 - "$APP" <<'PY'
+import sys, zipfile, os
+app = sys.argv[1]
+libdir = app + "/lib/arm64-v8a"
+if not os.path.isdir(libdir):
+    print("!! no lib dir, skip")
+    sys.exit(0)
+with zipfile.ZipFile(app + "/out/base.apk", 'a', zipfile.ZIP_STORED) as z:
+    existing = set(z.namelist())
+    n = 0
+    for f in sorted(os.listdir(libdir)):
+        full = os.path.join(libdir, f)
+        arc = "lib/arm64-v8a/" + f
+        if arc in existing:
+            continue
+        z.write(full, arc)
+        n += 1
+    print(f"added {n} native libs")
+PY
+
+echo "[6/6] zipalign + sign"
+python3 $ZALIGN $OUT/base.apk $OUT/aligned.apk 4
+
+if [ ! -f $KEYSTORE ]; then
+  keytool -genkeypair -keystore $KEYSTORE -storepass task123 -alias tr \
+    -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=TaskRunner,O=AI,C=CN" 2>/dev/null
+fi
+
+java -jar $APKSIGNER sign --ks $KEYSTORE --ks-pass pass:task123 --ks-key-alias tr \
+  --out $OUT/taskpro.apk $OUT/aligned.apk 2>&1
+
+echo ""
+java -jar $APKSIGNER verify $OUT/taskpro.apk 2>&1 | head -3
+echo ""
+echo "BUILD_OK"
+ls -lh $OUT/taskpro.apk
