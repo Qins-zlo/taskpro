@@ -1,6 +1,6 @@
 > **[English](README.md) | [中文](README.zh.md)**
 
-# TaskPro (定时任务Pro)
+# TaskPro
 
 > An Android **task scheduler / script execution engine** with built-in Python 3.14 + Node.js + Shell runtime. No root required, no extra interpreters to install.
 
@@ -8,30 +8,30 @@
 
 ---
 
-## ✨ Features
+## Features
 
-### 🗓️ Task Scheduling
+### Task Scheduling
 - **cron expression** based HTTP request / Shell command execution
 - Quick schedule presets (every N minutes/hours/days)
-- Driven by Android `AlarmManager` — triggers even when the app is killed
+- Driven by Android `AlarmManager` -- triggers even when the app is killed
 - Push notifications on execution results (success can be silent, failure always notifies)
 
-### 📜 Script Execution
+### Script Execution
 - **Multi-language runtime**: Python 3.14 + Node.js + Shell (BusyBox)
 - Built-in **cURL** with HTTPS/JSON/Cookie support
-- **Variable system**: declare variables in comments → auto-injected as environment variables
+- **Variable system**: declare variables in comments -> auto-injected as environment variables
 - Sensitive info auto-masked (`TOKEN` / `PASSWORD` / `COOKIE` / `SECRET` / `APIKEY`)
 - **Script marketplace**: install/update scripts from backend
 
-### 🖥️ Immersive Terminal
+### Immersive Terminal
 - Interactive shell with Termux-style extra-keys keyboard
 - Quick commands / font size adjustment / interrupt running process
 
-### 🤖 AI Assistant
+### AI Assistant
 - OpenAI-compatible API (DeepSeek / Qwen / GPT and more)
 - Optional web search capability
 
-### 📦 More
+### More
 - Environment variable store (independently managed, injected into scripts)
 - Artifacts manager (downloaded/generated files)
 - Data backup/restore, one-click import/export tasks/scripts/logs
@@ -39,7 +39,7 @@
 
 ---
 
-## 🏗️ Project Structure
+## Project Structure
 
 ```
 taskpro/
@@ -52,13 +52,13 @@ taskpro/
 │   ├── TerminalView.java    # Terminal emulator
 │   ├── md/                  # Material 3 pure-code components (no XML dependencies)
 │   └── ... (TaskStore/AlarmScheduler/CronParser/ScriptStore etc.)
-├── lib/arm64-v8a/           # ★ APK bundled native runtime (required for build)
+├── lib/arm64-v8a/           # APK bundled native runtime (required for build)
 │   ├── node                 # Node.js (aarch64-android, ~49MB)
 │   ├── libpython3.14.so     # Python 3.14 core library
 │   ├── *.cpython-314-aarch64-linux-android.so  # Python C extensions
 │   ├── busybox / libcurl    # Shell tools + curl
 │   └── libssl/libicu/libsqlite3/...  # Dependent dynamic libraries
-├── assets/                  # ★ APK resources (required for build)
+├── assets/                  # APK resources (required for build)
 │   ├── termux_lib.tar.gz    # Python 3.14 pure Python stdlib + pip
 │   ├── termux_pkgs.tar.gz   # requests/certifi and other third-party packages
 │   ├── termux_ca.pem        # CA root certificates
@@ -71,7 +71,7 @@ taskpro/
 
 ---
 
-## 🔧 Building
+## Building
 
 ```sh
 # Dependencies: JDK 8+ / Android SDK toolchain
@@ -80,13 +80,13 @@ sh build.sh
 # Output: out/taskpro.apk
 ```
 
-> All runtimes are bundled in the repository — **no internet download required** to build a fully functional APK.
+> All runtimes are bundled in the repository -- **no internet download required** to build a fully functional APK.
 >
-> ⚠️ A `taskrun.keystore` signing key will be generated/used during build. **This file is NOT committed** (excluded via `.gitignore`). Keep your own signing key secure.
+> WARNING: A `taskrun.keystore` signing key will be generated/used during build. **This file is NOT committed** (excluded via `.gitignore`). Keep your own signing key secure.
 
 ---
 
-## 🧠 How the Runtime Works
+## How the Runtime Works
 
 Android ROMs often mount app data directories as `noexec`, making it impossible to run Python/Node interpreters from `files/`.
 
@@ -101,26 +101,26 @@ Removing `lib/` or `assets/` will **break python/js script execution** in the bu
 
 ---
 
-## ⚖️ Disclaimer
+## Disclaimer
 
 This software is provided for **learning, research, and legitimate automation purposes only**. Do not use it for any illegal activities, violations of platform terms, or infringement of others' rights. Users assume all responsibility for their use of this software.
 
 ---
 
-## 📄 License
+## License
 
-**Non-Commercial License** — Free for personal/educational use. **Commercial use is prohibited (except Author).**
+**Non-Commercial License** -- Free for personal/educational use. **Commercial use is prohibited (except Author).**
 
-- ✅ Personal learning, research, self-use → Free
-- ✅ Non-commercial distribution/modification → Free, must retain copyright
-- ❌ **Commercial use (selling, integrating into paid products, internal company operations, etc.) requires authorization from the Author**
-- ✅ Author (Qins-zlo) is exempt from this restriction
+- [OK] Personal learning, research, self-use -> Free
+- [OK] Non-commercial distribution/modification -> Free, must retain copyright
+- [NO] **Commercial use (selling, integrating into paid products, internal company operations, etc.) requires authorization from the Author**
+- [OK] Author (Qins-zlo) is exempt from this restriction
 
 See [LICENSE](./LICENSE) for full terms.
 
 ---
 
-## 🌟 Support
+## Support
 
 If you find this project helpful, feel free to Star / Fork. Built with pure Java programmatic UI, running in Sandbox environment. Welcome to discuss technical questions.
 
