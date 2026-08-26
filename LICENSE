@@ -1,21 +1,40 @@
-MIT License
+# 定时任务Pro (TaskPro) 非商业许可证
 
-Copyright (c) 2026 Qins-zlo
+## 版权声明
+Copyright (c) 2026 Qins-zlo. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+## 定义
+- **"本软件"**：指定时任务Pro (TaskPro) 的全部源代码、资源文件、运行时库及构建产物。
+- **"商业用途"**：指任何直接或间接以营利为目的的使用，包括但不限于：
+  - 销售、出租、租赁本软件或其修改版本
+  - 将本软件作为商业产品或服务的一部分进行分发
+  - 将本软件集成到收费软件或服务中
+  - 使用本软件运行商业业务（如自动化脚本产生收入）
+  - 在组织/公司内部用于商业运营
+- **"作者"**：指 Qins-zlo（GitHub: Qins-zlo）。
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+## 许可授予
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+### 1. 非商业用途（免费授予）
+在遵守以下条款的前提下，任何个人或组织可以**免费、无限制地**使用、复制、修改和分发本软件，**仅限非商业用途**：
+
+- 必须保留本许可证文件及所有原始版权声明
+- 修改后的版本必须明确标注为"修改版"，并注明修改者
+- 不得移除或修改本软件中的版权归属标识
+
+### 2. 商业用途（需授权）
+**商业用途必须获得作者的明确书面授权。** 授权条件包括但不限于：
+
+- 作者（Qins-zlo）**不受此限制**，可自由将本软件用于任何商业用途
+- 其他个人或组织欲进行商业用途，需联系作者获取授权
+- 授权费用、范围及期限由作者与授权方另行协商
+
+### 3. 免责声明
+本软件按"原样"提供，**不提供任何明示或暗示的保证**，包括但不限于适销性、特定用途适用性和非侵权性。在任何情况下，作者均不对因使用本软件而产生的任何索赔、损害或其他责任负责。
+
+### 4. 终止
+违反本许可证任何条款将自动终止所授予的权利。终止后，必须立即停止使用并销毁所有副本。
+
+---
+
+**联系作者**：https://github.com/Qins-zlo
