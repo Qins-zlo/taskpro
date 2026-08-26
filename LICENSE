@@ -1,40 +1,40 @@
-# 定时任务Pro (TaskPro) 非商业许可证
+# TaskPro Non-Commercial License
 
-## 版权声明
+## Copyright
 Copyright (c) 2026 Qins-zlo. All rights reserved.
 
-## 定义
-- **"本软件"**：指定时任务Pro (TaskPro) 的全部源代码、资源文件、运行时库及构建产物。
-- **"商业用途"**：指任何直接或间接以营利为目的的使用，包括但不限于：
-  - 销售、出租、租赁本软件或其修改版本
-  - 将本软件作为商业产品或服务的一部分进行分发
-  - 将本软件集成到收费软件或服务中
-  - 使用本软件运行商业业务（如自动化脚本产生收入）
-  - 在组织/公司内部用于商业运营
-- **"作者"**：指 Qins-zlo（GitHub: Qins-zlo）。
+## Definitions
+- **"Software"** refers to TaskPro (定时任务Pro), including all source code, resource files, runtime libraries, and build artifacts.
+- **"Commercial Use"** means any use intended for or directed toward commercial advantage or monetary compensation, including but not limited to:
+  - Selling, renting, or leasing the Software or its modifications
+  - Distributing the Software as part of a commercial product or service
+  - Integrating the Software into paid software or services
+  - Using the Software to operate a business that generates revenue
+  - Using the Software within an organization/company for business operations
+- **"Author"** refers to Qins-zlo (GitHub: Qins-zlo).
 
-## 许可授予
+## License Grants
 
-### 1. 非商业用途（免费授予）
-在遵守以下条款的前提下，任何个人或组织可以**免费、无限制地**使用、复制、修改和分发本软件，**仅限非商业用途**：
+### 1. Non-Commercial Use (Free Grant)
+Subject to the terms below, any individual or organization may **freely and unrestrictedly** use, copy, modify, and distribute the Software **for non-commercial purposes only**:
 
-- 必须保留本许可证文件及所有原始版权声明
-- 修改后的版本必须明确标注为"修改版"，并注明修改者
-- 不得移除或修改本软件中的版权归属标识
+- The license file and all original copyright notices must be retained
+- Modified versions must be clearly marked as "modified" with attribution to the modifier
+- Copyright attribution must not be removed or altered
 
-### 2. 商业用途（需授权）
-**商业用途必须获得作者的明确书面授权。** 授权条件包括但不限于：
+### 2. Commercial Use (Requires Authorization)
+**Commercial use requires explicit written authorization from the Author.** Conditions include:
 
-- 作者（Qins-zlo）**不受此限制**，可自由将本软件用于任何商业用途
-- 其他个人或组织欲进行商业用途，需联系作者获取授权
-- 授权费用、范围及期限由作者与授权方另行协商
+- The Author (Qins-zlo) **is not subject to this restriction** and may freely use the Software for any commercial purpose
+- Other individuals or organizations wishing to use the Software commercially must contact the Author for authorization
+- Fees, scope, and duration of commercial authorization shall be negotiated separately
 
-### 3. 免责声明
-本软件按"原样"提供，**不提供任何明示或暗示的保证**，包括但不限于适销性、特定用途适用性和非侵权性。在任何情况下，作者均不对因使用本软件而产生的任何索赔、损害或其他责任负责。
+### 3. Disclaimer
+The Software is provided "AS IS", **without any express or implied warranties**, including but not limited to merchantability, fitness for a particular purpose, and non-infringement. In no event shall the Author be liable for any claims, damages, or other liabilities arising from the use of the Software.
 
-### 4. 终止
-违反本许可证任何条款将自动终止所授予的权利。终止后，必须立即停止使用并销毁所有副本。
+### 4. Termination
+Violation of any term of this license automatically terminates all granted rights. Upon termination, all copies must be destroyed immediately.
 
 ---
 
-**联系作者**：https://github.com/Qins-zlo
+**Contact Author**: https://github.com/Qins-zlo

@@ -1,123 +1,127 @@
-# 定时任务Pro (TaskPro)
+> **[English](README.md) | [中文](README.zh.md)**
 
-> 一款运行在 Android 上的**定时任务 / 脚本执行引擎**，内置 Python 3.14 + Node.js + Shell 运行时，无需 root，无需额外安装解释器。
+# TaskPro (定时任务Pro)
+
+> An Android **task scheduler / script execution engine** with built-in Python 3.14 + Node.js + Shell runtime. No root required, no extra interpreters to install.
 
 ![Android](https://img.shields.io/badge/Platform-Android-3DDC84) ![Python](https://img.shields.io/badge/Runtime-Python%203.14-3776AB) ![Node](https://img.shields.io/badge/Runtime-Node.js-339933) ![Version](https://img.shields.io/badge/Version-7.65-blue)
 
 ---
 
-## ✨ 功能特性
+## ✨ Features
 
-### 🗓️ 任务调度
-- **cron 表达式**定时执行 HTTP 请求 / Shell 命令
-- 支持「每隔几分钟/几小时/几天」的快捷定时
-- 系统闹钟驱动（`AlarmManager`），App 被杀也能准点触发
-- 执行结果推送通知（成功可静默 / 失败必通知）
+### 🗓️ Task Scheduling
+- **cron expression** based HTTP request / Shell command execution
+- Quick schedule presets (every N minutes/hours/days)
+- Driven by Android `AlarmManager` — triggers even when the app is killed
+- Push notifications on execution results (success can be silent, failure always notifies)
 
-### 📜 脚本执行
-- **多语言运行时**：Python 3.14 + Node.js + Shell (BusyBox)
-- 内置 **cURL**，支持 HTTPS / JSON / Cookie
-- 脚本**变量系统**：注释声明变量 → 自动注入为环境变量
-- 敏感信息自动遮罩（`TOKEN` / `PASSWORD` / `COOKIE` / `SECRET` / `APIKEY`）
-- 脚本**市场**：从后端安装/更新脚本
+### 📜 Script Execution
+- **Multi-language runtime**: Python 3.14 + Node.js + Shell (BusyBox)
+- Built-in **cURL** with HTTPS/JSON/Cookie support
+- **Variable system**: declare variables in comments → auto-injected as environment variables
+- Sensitive info auto-masked (`TOKEN` / `PASSWORD` / `COOKIE` / `SECRET` / `APIKEY`)
+- **Script marketplace**: install/update scripts from backend
 
-### 🖥️ 沉浸式终端
-- 交互式 Shell，Termux 风格 extra-keys 键盘
-- 快捷命令 / 字体大小调节 / 中断运行
+### 🖥️ Immersive Terminal
+- Interactive shell with Termux-style extra-keys keyboard
+- Quick commands / font size adjustment / interrupt running process
 
-### 🤖 AI 助手
-- OpenAI 兼容 API（支持 DeepSeek / Qwen / GPT 等多提供商）
-- 可选联网搜索
+### 🤖 AI Assistant
+- OpenAI-compatible API (DeepSeek / Qwen / GPT and more)
+- Optional web search capability
 
-### 📦 其他
-- 环境变量库（独立管理，供脚本注入）
-- 我的产物（下载/生成的文件管理）
-- 数据备份/恢复、一键导入导出任务/脚本/日志
-- 执行统计、深色/浅色主题、自定义主题色
+### 📦 More
+- Environment variable store (independently managed, injected into scripts)
+- Artifacts manager (downloaded/generated files)
+- Data backup/restore, one-click import/export tasks/scripts/logs
+- Execution statistics, dark/light theme, custom accent color
 
 ---
 
-## 🏗️ 项目结构
+## 🏗️ Project Structure
 
 ```
 taskpro/
-├── src/io/taskpro/          # Java 源码
-│   ├── MainActivity.java    # 基础模式主界面
-│   ├── AdvActivity.java     # 高级模式 (脚本库/产物/日志/终端/环境变量)
-│   ├── AIActivity.java      # AI 助手会话
-│   ├── TaskEngine.java      # 任务执行引擎
-│   ├── RuntimeManager.java  # 运行时管理 (命令重写/PATH/LD_LIBRARY_PATH 注入)
-│   ├── TerminalView.java    # 终端模拟器
-│   ├── md/                  # Material 3 纯代码组件 (无 XML 依赖)
-│   └── ... (TaskStore/AlarmScheduler/CronParser/ScriptStore 等)
-├── lib/arm64-v8a/           # ★ APK 内置 native 运行时 (构建必需)
+├── src/io/taskpro/          # Java source code
+│   ├── MainActivity.java    # Basic mode main UI
+│   ├── AdvActivity.java     # Advanced mode (scripts/artifacts/logs/terminal/env)
+│   ├── AIActivity.java      # AI Assistant session
+│   ├── TaskEngine.java      # Task execution engine
+│   ├── RuntimeManager.java  # Runtime management (command rewriting, PATH/LD_LIBRARY_PATH injection)
+│   ├── TerminalView.java    # Terminal emulator
+│   ├── md/                  # Material 3 pure-code components (no XML dependencies)
+│   └── ... (TaskStore/AlarmScheduler/CronParser/ScriptStore etc.)
+├── lib/arm64-v8a/           # ★ APK bundled native runtime (required for build)
 │   ├── node                 # Node.js (aarch64-android, ~49MB)
-│   ├── libpython3.14.so     # Python 3.14 核心库
-│   ├── *.cpython-314-aarch64-linux-android.so  # Python C 扩展
-│   ├── busybox / libcurl    # Shell 工具集 + curl
-│   └── libssl/libicu/libsqlite3/...  # 依赖动态库
-├── assets/                  # ★ APK 资源 (构建必需)
-│   ├── termux_lib.tar.gz    # Python 3.14 纯 Python 标准库 + pip
-│   ├── termux_pkgs.tar.gz   # requests/certifi 等第三方包
-│   ├── termux_ca.pem        # CA 根证书
-│   └── icons.ttf            # Material 图标字体
-├── res/                     # 资源 (浅色+深色)
+│   ├── libpython3.14.so     # Python 3.14 core library
+│   ├── *.cpython-314-aarch64-linux-android.so  # Python C extensions
+│   ├── busybox / libcurl    # Shell tools + curl
+│   └── libssl/libicu/libsqlite3/...  # Dependent dynamic libraries
+├── assets/                  # ★ APK resources (required for build)
+│   ├── termux_lib.tar.gz    # Python 3.14 pure Python stdlib + pip
+│   ├── termux_pkgs.tar.gz   # requests/certifi and other third-party packages
+│   ├── termux_ca.pem        # CA root certificates
+│   └── icons.ttf            # Material icon font
+├── res/                     # Resources (light + dark theme)
 ├── AndroidManifest.xml
-├── build.sh                 # 一键构建脚本
+├── build.sh                 # One-click build script
 └── mkicon.py
 ```
 
 ---
 
-## 🔧 构建
+## 🔧 Building
 
 ```sh
-# 依赖: JDK 8+ / Android SDK 工具链
+# Dependencies: JDK 8+ / Android SDK toolchain
 # (aapt2 / d8 / apksigner / zipalign / platform-34 android.jar)
 sh build.sh
-# 输出: out/taskpro.apk
+# Output: out/taskpro.apk
 ```
 
-> 全部运行时已随仓库打包，**无需联网下载任何依赖**即可构建出完整可运行的 APK。
+> All runtimes are bundled in the repository — **no internet download required** to build a fully functional APK.
 >
-> ⚠️ 构建时会生成/使用 `taskrun.keystore` 签名密钥，**该文件不会提交到仓库**（已加入 `.gitignore`）。请自行保管你的签名密钥。
+> ⚠️ A `taskrun.keystore` signing key will be generated/used during build. **This file is NOT committed** (excluded via `.gitignore`). Keep your own signing key secure.
 
 ---
 
-## 🧠 运行时工作原理
+## 🧠 How the Runtime Works
 
-Android ROM 常把 app 数据目录挂载为 `noexec`，导致 Python/Node 解释器**无法放在 `files/` 下执行**。
+Android ROMs often mount app data directories as `noexec`, making it impossible to run Python/Node interpreters from `files/`.
 
-本项目把全部可执行文件打包进 APK 的 `lib/arm64-v8a/`，Android 安装时系统自动解压到 `nativeLibraryDir`（该目录保证可执行）：
+This project packages all executables into the APK's `lib/arm64-v8a/`. Android extracts them to `nativeLibraryDir` (which is always executable) during installation:
 
-1. `RuntimeManager.buildCommand()` 注入 `PATH` / `LD_LIBRARY_PATH` / `PYTHONHOME` / `PYTHONPATH`
-2. `rewriteCommand()` 把脚本中的 `python3 / pip / node / busybox / curl` 重写为 nativeLibraryDir 完整路径
-3. 纯 `.py` 标准库从 assets 解压到 `files/termux/usr`（可写、无执行需求）
-4. 生成 shell wrapper 指向真实二进制
+1. `RuntimeManager.buildCommand()` injects `PATH` / `LD_LIBRARY_PATH` / `PYTHONHOME` / `PYTHONPATH`
+2. `rewriteCommand()` rewrites `python3 / pip / node / busybox / curl` to full nativeLibraryDir paths
+3. Pure `.py` stdlib is extracted from assets to `files/termux/usr` (writable, no execution needed)
+4. Shell wrappers are generated pointing to the real binaries
 
-删除 `lib/` 或 `assets/` 后构建的 APK **将无法运行 python/js 脚本**。
+Removing `lib/` or `assets/` will **break python/js script execution** in the built APK.
 
 ---
 
-## ⚖️ 免责声明
+## ⚖️ Disclaimer
 
-本项目仅供**学习、研究与合法自动化**用途。请勿用于任何违反法律法规、平台规则或侵犯他人权益的场景。使用本软件产生的一切后果由使用者自行承担。
+This software is provided for **learning, research, and legitimate automation purposes only**. Do not use it for any illegal activities, violations of platform terms, or infringement of others' rights. Users assume all responsibility for their use of this software.
 
 ---
 
 ## 📄 License
 
-**非商业许可证** — 个人可免费使用/修改/分发，**禁止商用（作者除外）**。
+**Non-Commercial License** — Free for personal/educational use. **Commercial use is prohibited (except Author).**
 
-- ✅ 个人学习、研究、自用 → 免费
-- ✅ 非商业性质的分发/修改 → 免费，须保留版权声明
-- ❌ **商业用途（销售、集成到收费产品、公司内部运营等）必须获得作者授权**
-- ✅ 作者（Qins-zlo）不受此限制
+- ✅ Personal learning, research, self-use → Free
+- ✅ Non-commercial distribution/modification → Free, must retain copyright
+- ❌ **Commercial use (selling, integrating into paid products, internal company operations, etc.) requires authorization from the Author**
+- ✅ Author (Qins-zlo) is exempt from this restriction
 
-详见 [LICENSE](./LICENSE) 文件。
+See [LICENSE](./LICENSE) for full terms.
 
 ---
 
-## 🌟 支持
+## 🌟 Support
 
-如果你觉得这个项目有帮助，欢迎 Star / Fork。项目由纯 Java 程序化 UI 构建，运行在 Sandbox 环境，欢迎交流技术问题。
+If you find this project helpful, feel free to Star / Fork. Built with pure Java programmatic UI, running in Sandbox environment. Welcome to discuss technical questions.
+
+**Contact**: https://github.com/Qins-zlo
