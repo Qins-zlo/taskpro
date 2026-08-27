@@ -43,10 +43,10 @@ public class Backend {
     /** 提交审核状态: 通过后由作者把 Issue 关闭并把脚本合入 scripts/ 目录 */
     private static final String ISSUE_MARK = "<!-- taskpro-script -->";
 
-    /** GitHub 读取列表: 匿名读 index.json. 优先 API(实时), 失败回退 raw(有缓存) */
+    /** GitHub 读取列表: 读 index.json. 优先 API(带token, 高配额), 失败回退 raw */
     public static JSONArray fetchScriptsGithub() {
         try {
-            JSONObject o = new JSONObject(get(GH_API + "/contents/index.json"));
+            JSONObject o = new JSONObject(getAuth(GH_API + "/contents/index.json"));
             String content = decodeBase64(o.optString("content", ""));
             if (!content.isEmpty()) {
                 JSONObject idx = new JSONObject(content);
@@ -60,21 +60,52 @@ public class Backend {
         } catch (Exception e) { return null; }
     }
 
-    /** GitHub 读取脚本内容: 匿名读 scripts/<name>/index.json. 优先 API, 失败回退 raw */
+    /** GitHub 读取脚本内容: 匿名读 scripts/<name>/index.json. 优先 API(带token), 失败回退 raw */
     public static String fetchScriptContentGithub(String name) {
+        String enc = urlEnc(name);
         try {
-            JSONObject o = new JSONObject(get(GH_API + "/contents/scripts/" + name + "/index.json"));
+            JSONObject o = new JSONObject(getAuth(GH_API + "/contents/scripts/" + enc + "/index.json"));
             String content = decodeBase64(o.optString("content", ""));
             if (!content.isEmpty()) {
                 JSONObject idx = new JSONObject(content);
                 return idx.optString("content", null);
             }
         } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
-        // 回退: raw
+        // 回退: raw (URL编码后的路径)
         try {
-            JSONObject idx = new JSONObject(get(GH_RAW + "scripts/" + name + "/index.json"));
+            JSONObject idx = new JSONObject(get(GH_RAW + "scripts/" + enc + "/index.json"));
             return idx.optString("content", null);
         } catch (Exception e) { return null; }
+    }
+
+    /** URL 编码文件名 (安全拼接到路径) */
+    private static String urlEnc(String s) {
+        try { return URLEncoder.encode(s, "UTF-8").replace("+", "%20"); }
+        catch (Exception e) { return s; }
+    }
+
+    /** GET 请求带 bot token (用于 GitHub API, 提升限流配额到 5000/h) */
+    private static String getAuth(String urlStr) {
+        HttpURLConnection c = null;
+        try {
+            URL url = new URL(urlStr);
+            c = (HttpURLConnection) url.openConnection();
+            c.setConnectTimeout(8000);
+            c.setReadTimeout(8000);
+            c.setRequestMethod("GET");
+            c.setRequestProperty("User-Agent", "taskpro-android");
+            c.setRequestProperty("Accept", "application/vnd.github+json");
+            c.setRequestProperty("Authorization", "token " + GH_BOT_TOKEN);
+            int code = c.getResponseCode();
+            if (code != 200) return null;
+            BufferedReader r = new BufferedReader(new InputStreamReader(c.getInputStream(), "UTF-8"));
+            StringBuilder sb = new StringBuilder();
+            String l;
+            while ((l = r.readLine()) != null) sb.append(l);
+            r.close();
+            return sb.toString();
+        } catch (Exception e) { return null; }
+        finally { if (c != null) { try { c.disconnect(); } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} } } }
     }
 
     /** base64 解码 (兼容 Android) */
@@ -96,8 +127,20 @@ public class Backend {
      */
     public static String submitScriptGithub(String name, String type, String ver,
                                             String note, String content, String author, String uid) {
+        // 检查 token 是否已注入 (占位符表示构建时未配置 GH_BOT_TOKEN)
+        if (GH_BOT_TOKEN.contains("REPLACE_WITH")) {
+            return "上传功能未配置 (构建时缺少 GH_BOT_TOKEN)";
+        }
+        // 脚本名校验: 禁止路径分隔符等会破坏 scripts/<name> 目录的字符
+        if (name.contains("/") || name.contains("\\") || name.contains("..")
+                || name.contains(" ") || name.contains("#") || name.contains("?") || name.contains("%")) {
+            return "文件名包含非法字符 (不能含 / \\ 空格 # ? % ..)";
+        }
         try {
             String title = ISSUE_PREFIX + name + " v" + (ver.isEmpty() ? "1.0" : ver);
+            // 若脚本内容包含 ``` 代码围栏, 用更长的围栏包裹避免破坏 Markdown
+            String fence = "```";
+            while (content.contains(fence)) fence += "`";
             String body = ISSUE_MARK + "\n\n"
                     + "**名称**: " + name + "\n"
                     + "**类型**: " + type + "\n"
@@ -105,7 +148,7 @@ public class Backend {
                     + "**作者**: " + (author.isEmpty() ? "匿名" : author) + "\n"
                     + "**UID**: " + uid + "\n"
                     + "**说明**: " + note + "\n\n"
-                    + "```" + type + "\n" + content + "\n```";
+                    + fence + type + "\n" + content + "\n" + fence;
             URL u = new URL(GH_API + "/issues");
             HttpURLConnection c = (HttpURLConnection) u.openConnection();
             c.setRequestMethod("POST");
@@ -147,59 +190,54 @@ public class Backend {
      */
     public static JSONArray myScriptsGithub(String uid) {
         try {
-            String urlStr = GH_API + "/issues?state=all&per_page=100";
-            URL u = new URL(urlStr);
-            HttpURLConnection c = (HttpURLConnection) u.openConnection();
-            c.setConnectTimeout(8000);
-            c.setReadTimeout(15000);
-            c.setRequestProperty("User-Agent", "taskpro-android");
-            c.setRequestProperty("Accept", "application/vnd.github+json");
-            int code = c.getResponseCode();
-            if (code != 200) return null;
-            java.io.BufferedReader r = new java.io.BufferedReader(
-                    new java.io.InputStreamReader(c.getInputStream(), "UTF-8"));
-            StringBuilder sb = new StringBuilder();
-            String l;
-            while ((l = r.readLine()) != null) sb.append(l);
-            r.close();
-            JSONArray arr = new JSONArray(sb.toString());
             JSONArray out = new JSONArray();
-            for (int i = 0; i < arr.length(); i++) {
-                JSONObject issue = arr.optJSONObject(i);
-                if (issue == null) continue;
-                String title = issue.optString("title", "");
-                if (!title.startsWith(ISSUE_PREFIX)) continue;
-                String body = issue.optString("body", "");
-                if (body.indexOf("**UID**: " + uid) < 0) continue;
-                JSONObject item = new JSONObject();
-                // 提取纯名称 (去掉版本号)
-                String fullName = title.substring(ISSUE_PREFIX.length());
-                String pureName = fullName;
-                int sp = fullName.indexOf(" v");
-                if (sp > 0) pureName = fullName.substring(0, sp);
-                item.put("name", pureName);
-                // 提取版本
-                int vIdx = fullName.indexOf(" v");
-                String ver = "1.0";
-                if (vIdx >= 0) ver = fullName.substring(vIdx + 2);
-                item.put("ver", ver);
-                String created = issue.optString("created_at", "");
-                item.put("time", created.length() >= 10 ? created.substring(0, 10) : created);
-                String state = issue.optString("state", "open");
-                String status;
-                String reason = "";
-                // 若 Issue 被关闭且带 [merged] 标记, 视为已上架
-                if ("closed".equals(state) && body.contains("[merged]")) {
-                    status = "published";
-                } else if ("closed".equals(state)) {
-                    status = "rejected";
-                    reason = "未通过审核";
-                } else {
-                    status = "pending";
+            // 分页拉取 (GitHub issues API 每页最多100, 支持多页)
+            int page = 1;
+            while (true) {
+                String urlStr = GH_API + "/issues?state=all&per_page=100&page=" + page;
+                String raw = getAuth(urlStr);
+                if (raw == null) break;
+                JSONArray arr = new JSONArray(raw);
+                if (arr.length() == 0) break;
+                for (int i = 0; i < arr.length(); i++) {
+                    JSONObject issue = arr.optJSONObject(i);
+                    if (issue == null) continue;
+                    String title = issue.optString("title", "");
+                    if (!title.startsWith(ISSUE_PREFIX)) continue;
+                    String body = issue.optString("body", "");
+                    if (body.indexOf("**UID**: " + uid) < 0) continue;
+                    JSONObject item = new JSONObject();
+                    // 提取纯名称 (去掉版本号)
+                    String fullName = title.substring(ISSUE_PREFIX.length());
+                    String pureName = fullName;
+                    int sp = fullName.indexOf(" v");
+                    if (sp > 0) pureName = fullName.substring(0, sp);
+                    item.put("name", pureName);
+                    // 提取版本
+                    int vIdx = fullName.indexOf(" v");
+                    String ver = "1.0";
+                    if (vIdx >= 0) ver = fullName.substring(vIdx + 2);
+                    item.put("ver", ver);
+                    String created = issue.optString("created_at", "");
+                    item.put("time", created.length() >= 10 ? created.substring(0, 10) : created);
+                    String state = issue.optString("state", "open");
+                    String status;
+                    String reason = "";
+                    // 若 Issue 被关闭且带 [merged] 标记, 视为已上架
+                    if ("closed".equals(state) && body.contains("[merged]")) {
+                        status = "published";
+                    } else if ("closed".equals(state)) {
+                        status = "rejected";
+                        reason = "未通过审核";
+                    } else {
+                        status = "pending";
+                    }
+                    item.put("status", status);
+                    item.put("reason", reason);
+                    out.put(item);
                 }
-                item.put("status", status);
-                item.put("reason", reason);
-                out.put(item);
+                if (arr.length() < 100) break;  // 已到最后一页
+                page++;
             }
             return out;
         } catch (Exception e) { return null; }
