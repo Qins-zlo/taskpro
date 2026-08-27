@@ -3593,7 +3593,7 @@ i.setType("text/plain");
         wb.setText("1. 请删除脚本中账号、密码、Token 等个人信息\n"
                 + "2. 敏感信息改为环境变量: process.env.XXX / os.environ[\"XXX\"]\n"
                 + "3. 在文件头注释声明变量:  // 变量: XXX=说明, YYY=说明2\n"
-                + "4. 提交后需管理员审核, 通过后才显示在市场");
+                + "4. 提交后经作者审核, 通过后自动上架到 GitHub 脚本库");
         wb.setTextColor(MdTheme.onSurfaceVariant(this));
         wb.setTextSize(12);
         wb.setPadding(0, dp(4), 0, 0);
@@ -3749,7 +3749,7 @@ i.setType("text/plain");
                         box.removeAllViews();
                         if (arr == null || arr.length() == 0) {
                             TextView tv = new TextView(AdvActivity.this);
-                            tv.setText("后端无脚本, 或服务器未配置");
+                            tv.setText("GitHub 脚本库暂无脚本");
                             tv.setTextColor(MdTheme.onSurfaceVariant(AdvActivity.this));
                             tv.setTextSize(13);
                             tv.setPadding(dp(8), dp(12), dp(8), dp(12));
