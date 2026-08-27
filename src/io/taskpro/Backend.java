@@ -223,12 +223,22 @@ public class Backend {
                     String state = issue.optString("state", "open");
                     String status;
                     String reason = "";
+                    // 从 body 提取驳回理由 (审核工具追加的标记)
+                    int rejIdx = body.indexOf("**rejected**:");
+                    if (rejIdx >= 0) {
+                        reason = body.substring(rejIdx + "**rejected**:".length()).trim();
+                    }
                     // 若 Issue 被关闭且带 [merged] 标记, 视为已上架
                     if ("closed".equals(state) && body.contains("[merged]")) {
                         status = "published";
                     } else if ("closed".equals(state)) {
                         status = "rejected";
-                        reason = "未通过审核";
+                        // 兼容旧格式: 整个 body 被覆盖成"未通过审核: xxx"时提取
+                        if (reason.isEmpty() && body.startsWith("未通过审核")) {
+                            reason = body.substring("未通过审核".length()).trim();
+                            if (reason.startsWith(":")) reason = reason.substring(1).trim();
+                        }
+                        if (reason.isEmpty()) reason = "未通过审核";
                     } else {
                         status = "pending";
                     }

@@ -3761,9 +3761,11 @@ i.setType("text/plain");
                             JSONObject s = arr.optJSONObject(i);
                             if (s == null) continue;
                             final String name = s.optString("name", "");
+                            final String mtype = s.optString("type", "py");
+                            final String fname = marketFileName(name, mtype);
                             final String mver = s.optString("ver", "");
-                            final String lver = ScriptStore.verOf(AdvActivity.this, name);
-                            final boolean installed = ScriptStore.exists(AdvActivity.this, name);
+                            final String lver = ScriptStore.verOf(AdvActivity.this, fname);
+                            final boolean installed = ScriptStore.exists(AdvActivity.this, fname);
                             boolean hasNew = installed && !mver.isEmpty() && !mver.equals(lver);
                             if (hasNew) updatable++;
                             LinearLayout row = new LinearLayout(AdvActivity.this);
@@ -3774,7 +3776,7 @@ i.setType("text/plain");
                             info.setTextColor(MdTheme.onSurface(AdvActivity.this));
                             info.setTextSize(14);
                             if (hasNew) {
-                                info.setText(name + "  v" + lver + " → v" + mver);
+                                info.setText(fname + "  v" + lver + " → v" + mver);
                                 final MdButton btn = new MdButton(AdvActivity.this, "更新", MdButton.FILLED);
                                 btn.setOnClickListener(new View.OnClickListener() {
                                     public void onClick(View v) {
@@ -3792,7 +3794,7 @@ i.setType("text/plain");
                                                             btn.setEnabled(true);
                                                             return;
                                                         }
-                                                        installMarketScript(name, content, mver, "已更新", new Runnable() {
+                                                        installMarketScript(name, mtype, content, mver, "已更新", new Runnable() {
                                                             public void run() {
                                                                 reloadMarket();
                                                                 switchTab(1);
@@ -3810,15 +3812,15 @@ i.setType("text/plain");
                                         LinearLayout.LayoutParams.WRAP_CONTENT, 1));
                                 row.addView(btn);
                             } else {
-                                info.setText(installed ? name + "  v" + lver + "  (已是最新)"
-                                        : name + "  v" + mver + "  (未安装)");
+                                info.setText(installed ? fname + "  v" + lver + "  (已是最新)"
+                                        : fname + "  v" + mver + "  (未安装)");
                                 info.setTextColor(MdTheme.onSurfaceVariant(AdvActivity.this));
                                 row.addView(info);
                             }
                             row.setClickable(true);
                             row.setOnClickListener(new View.OnClickListener() {
                                 public void onClick(View v) {
-                                    showMarketPreview(name, s.optString("author", ""),
+                                    showMarketPreview(name, mtype, s.optString("author", ""),
                                             mver, s.optString("note", ""), s.optString("content", ""));
                                 }
                             });
@@ -3839,7 +3841,7 @@ i.setType("text/plain");
     }
 
     /** 市场脚本内容预览 (安装前查看) */
-    private void showMarketPreview(final String name, String author, String ver,
+    private void showMarketPreview(final String name, final String type, String author, String ver,
                                    String note, String contentIgnored) {
         // 列表不携带脚本内容, 预览时动态请求, 降低服务器压力
         final MdDialog d = new MdDialog(this);
@@ -3867,7 +3869,7 @@ i.setType("text/plain");
             public void run() {
                 if (contentRef[0] == null) return;
                 d.dismiss();
-                installMarketScript(name, contentRef[0], ver, "已安装", new Runnable() {
+                installMarketScript(name, type, contentRef[0], ver, "已安装", new Runnable() {
                     public void run() {
                         reloadMarket();
                         switchTab(1);
@@ -3903,20 +3905,36 @@ i.setType("text/plain");
     }
 
     /** 安装市场脚本: 解析头部注释变量声明, 有变量则先弹配置表单再安装 */
-    private void installMarketScript(final String name, final String content,
-                                      final String ver, final String doneText) {
-        installMarketScript(name, content, ver, doneText, null);
+    /** 市场脚本文件名: 若 name 本身不含扩展名, 根据 type 自动补后缀 (hello + py → hello.py) */
+    private static String marketFileName(String name, String type) {
+        if (name == null) return "";
+        // 已含扩展名 (如 .py/.js/.sh 或已有点) 则直接用
+        int dot = name.lastIndexOf('.');
+        if (dot > 0 && dot < name.length() - 1) return name;
+        // 补后缀
+        String ext = (type == null || type.isEmpty()) ? "py" : type;
+        // 去掉可能已带的前导点
+        if (ext.startsWith(".")) ext = ext.substring(1);
+        return name + "." + ext;
     }
 
-    private void installMarketScript(final String name, final String content,
+    private void installMarketScript(final String name, final String type,
+                                      final String content,
+                                      final String ver, final String doneText) {
+        installMarketScript(name, type, content, ver, doneText, null);
+    }
+
+    private void installMarketScript(final String name, final String type,
+                                      final String content,
                                       final String ver, final String doneText,
                                       final Runnable onDone) {
+        final String fname = marketFileName(name, type);
         final org.json.JSONArray vars = ScriptStore.parseVars(content);
         if (vars.length() == 0) {
             try {
-                ScriptStore.write(this, name, content);
-                ScriptStore.saveVer(this, name, ver);
-                MdSnackbar.show(root, "已安装: " + name);
+                ScriptStore.write(this, fname, content);
+                ScriptStore.saveVer(this, fname, ver);
+                MdSnackbar.show(root, "已安装: " + fname);
             } catch (Exception e) {
                 MdSnackbar.show(root, "安装失败: " + e.toString());
             }
@@ -3925,7 +3943,7 @@ i.setType("text/plain");
         }
         // 脚本声明了变量: 弹配置表单 (已有配置回填)
         final MdDialog d = new MdDialog(this);
-        d.title("填写配置: " + name);
+        d.title("填写配置: " + fname);
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         TextView tip = new TextView(this);
@@ -3934,7 +3952,7 @@ i.setType("text/plain");
         tip.setTextSize(12);
         tip.setPadding(dp(2), dp(2), dp(2), dp(10));
         box.addView(tip);
-        java.util.Map<String, String> old = ScriptStore.confOf(this, name);
+        java.util.Map<String, String> old = ScriptStore.confOf(this, fname);
         final java.util.List<android.widget.EditText> inputs =
                 new java.util.ArrayList<android.widget.EditText>();
         for (int i = 0; i < vars.length(); i++) {
@@ -3998,10 +4016,10 @@ i.setType("text/plain");
                         }
                     }
                     EnvStore.save(AdvActivity.this, envs);
-                    ScriptStore.saveConf(AdvActivity.this, name, conf);
-                    ScriptStore.write(AdvActivity.this, name, content);
-                    ScriptStore.saveVer(AdvActivity.this, name, ver);
-                    MdSnackbar.show(root, doneText + ": " + name);
+                    ScriptStore.saveConf(AdvActivity.this, fname, conf);
+                    ScriptStore.write(AdvActivity.this, fname, content);
+                    ScriptStore.saveVer(AdvActivity.this, fname, ver);
+                    MdSnackbar.show(root, doneText + ": " + fname);
                     d.dismiss();
                     if (onDone != null) onDone.run();
                 } catch (Exception e) {
@@ -4054,13 +4072,14 @@ i.setType("text/plain");
             final String note = s.optString("note", "");
             final String ver = s.optString("ver", "");
             final String type = s.optString("type", "py");
+            final String displayName = marketFileName(name, type);
             // 搜索过滤
             if (!q.isEmpty()) {
                 String hay = (name + " " + note).toLowerCase(java.util.Locale.US);
                 if (!hay.contains(q)) continue;
             }
-            final boolean installed = ScriptStore.exists(this, name);
-            final boolean updated = installed && ver.equals(ScriptStore.verOf(this, name));
+            final boolean installed = ScriptStore.exists(this, marketFileName(name, type));
+            final boolean updated = installed && ver.equals(ScriptStore.verOf(this, marketFileName(name, type)));
 
             // 卡片
             MdCard card = new MdCard(this, MdCard.OUTLINED, false);
@@ -4096,7 +4115,7 @@ i.setType("text/plain");
             row1.addView(badge);
             // 名称
             TextView n = new TextView(this);
-            n.setText(name.length() > 18 ? name.substring(0, 18) + "…" : name);
+            n.setText(displayName.length() > 18 ? displayName.substring(0, 18) + "…" : displayName);
             n.setTextColor(MdTheme.onSurface(this));
             n.setTextSize(15);
             n.setTypeface(Typeface.DEFAULT_BOLD);
@@ -4211,7 +4230,7 @@ i.setType("text/plain");
                                         btn.setEnabled(true);
                                         return;
                                     }
-                                    installMarketScript(scriptName, content, target,
+                                    installMarketScript(scriptName, type, content, target,
                                             installed ? "已更新" : "已安装");
                                     btn.setEnabled(false);
                                 }
@@ -4514,6 +4533,9 @@ i.setType("text/plain");
         // ── 组装 ──
         LinearLayout editorRoot = new LinearLayout(this);
         editorRoot.setOrientation(LinearLayout.VERTICAL);
+        // 让编辑器占满整个内容区高度: 内容少时编辑框也能撑满屏幕, 不会只占上半屏
+        editorRoot.setLayoutParams(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         editorRoot.addView(toolBar);
         editorRoot.addView(divider);
         editorRoot.addView(edit, new LinearLayout.LayoutParams(-1, 0, 1f));
