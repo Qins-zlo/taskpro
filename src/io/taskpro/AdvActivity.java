@@ -3443,7 +3443,7 @@ i.setType("text/plain");
         loading.setTextSize(13);
         loading.setPadding(dp(8), dp(24), dp(8), dp(24));
         marketList.addView(loading);
-        marketStatus.setText("正在连接后端…");
+        marketStatus.setText("正在加载 GitHub 脚本库…");
         new Thread(new Runnable() {
             public void run() {
                 final JSONArray arr = Backend.fetchScripts(AdvActivity.this);
@@ -3491,7 +3491,7 @@ i.setType("text/plain");
                         box.removeAllViews();
                         if (arr == null) {
                             TextView tv = new TextView(AdvActivity.this);
-                            tv.setText("查询失败, 请检查服务器地址");
+                            tv.setText("查询失败, 请检查网络后重试");
                             tv.setTextColor(MdTheme.onSurfaceVariant(AdvActivity.this));
                             tv.setTextSize(13);
                             tv.setPadding(dp(8), dp(12), dp(8), dp(12));
@@ -4015,7 +4015,6 @@ i.setType("text/plain");
     private void renderMarketList(JSONArray arr) {
         if (marketList == null) return;
         marketList.removeAllViews();
-        String base = Backend.baseUrl(this);
         String q = marketSearch == null ? "" : marketSearch.getText().toString().trim()
                 .toLowerCase(java.util.Locale.US);
         if (arr == null || arr.length() == 0) {
@@ -4038,16 +4037,14 @@ i.setType("text/plain");
             t1.setPadding(0, dp(12), 0, 0);
             empty.addView(t1);
             TextView t2 = new TextView(this);
-            t2.setText(base.isEmpty()
-                    ? "尚未设置服务器地址\n(更多页 → 检查更新 → 设置服务器地址)"
-                    : "后端管理页 → 脚本管理 → 发布脚本\n发布后点右上角刷新即可看到");
+            t2.setText("GitHub 脚本库暂无脚本\n上传脚本经审核后自动上架, 点右上角刷新即可看到");
             t2.setTextColor(MdTheme.onSurfaceVariant(this));
             t2.setTextSize(12);
             t2.setGravity(Gravity.CENTER);
             t2.setPadding(0, dp(6), 0, 0);
             empty.addView(t2);
             marketList.addView(empty);
-            marketStatus.setText("共 0 个脚本" + (base.isEmpty() ? "" : " · " + base));
+            marketStatus.setText("共 0 个脚本 · GitHub 脚本库");
             return;
         }
         for (int i = 0; i < arr.length(); i++) {
@@ -4282,7 +4279,7 @@ i.setType("text/plain");
             marketList.addView(card);
             marketList.addView(new Spacer(this, 0, dp(8)));
         }
-        marketStatus.setText("共 " + arr.length() + " 个脚本 · " + (base.isEmpty() ? "后端未设置" : base));
+        marketStatus.setText("共 " + arr.length() + " 个脚本 · GitHub 脚本库");
     }
 
     private JSONArray fetchAgain() {
