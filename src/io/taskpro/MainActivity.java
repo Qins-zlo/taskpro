@@ -806,6 +806,15 @@ private void renderTasks() {
                 if (!url.isEmpty()) {
                     Backend.download(MainActivity.this, url, "定时任务Pro-" + name + ".apk");
                     MdSnackbar.show(root, "已开始下载, 请查看通知栏进度");
+                } else {
+                    // 无直链时引导去 GitHub Release 页
+                    try {
+                        Intent i = new Intent(Intent.ACTION_VIEW,
+                                Uri.parse("https://github.com/Qins-zlo/taskpro/releases/latest"));
+                        startActivity(i);
+                    } catch (Exception e) {
+                        MdSnackbar.show(root, "未找到下载链接, 请到 GitHub Releases 下载");
+                    }
                 }
             }
         });

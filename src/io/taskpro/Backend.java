@@ -296,28 +296,58 @@ public class Backend {
     /**
      * 检查更新: 有新版本返回版本信息 JSONObject (含 version_name/version_code/url/log/force)
      * 无更新/未配置/请求失败返回 null
+     * 数据源: GitHub Release (releases/latest), 兼容旧字段结构
      */
     public static JSONObject checkVersion(Context ctx) {
-        String base = baseUrl(ctx);
-        if (base.isEmpty()) return null;
-        String raw = get(base + "/api.php?action=version");
-        if (raw == null) return null;
         try {
-            JSONObject o = new JSONObject(raw);
-            if (o.optInt("code", -1) != 0) return null;
-            JSONObject data = o.optJSONObject("data");
-            if (data == null) return null;
-            int vc = data.optInt("version_code", -1);
-            if (vc <= 0) return null;
-            // 当前版本号: 取包信息 (无 BuildConfig, 手写构建)
-            int myCode = 0;
+            // 走 GitHub Release 最新版
+            String raw = getAuth("https://api.github.com/repos/Qins-zlo/taskpro/releases/latest");
+            if (raw == null) return null;
+            JSONObject release = new JSONObject(raw);
+            String tag = release.optString("tag_name", "");
+            if (tag.isEmpty()) return null;
+            String verName = tag.startsWith("v") ? tag.substring(1) : tag;
+            String body = release.optString("body", "");
+            String downloadUrl = "";
+            JSONArray assets = release.optJSONArray("assets");
+            if (assets != null && assets.length() > 0) {
+                downloadUrl = assets.optJSONObject(0).optString("browser_download_url", "");
+            }
+            // 当前版本名
+            String curName = "";
             try {
-                myCode = ctx.getPackageManager()
-                        .getPackageInfo(ctx.getPackageName(), 0).versionCode;
+                curName = ctx.getPackageManager()
+                        .getPackageInfo(ctx.getPackageName(), 0).versionName;
             } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
-            if (vc <= myCode) return null;
+            if (curName.isEmpty()) return null;
+            // 语义化版本比较
+            if (compareVersion(verName, curName) <= 0) return null;
+            JSONObject data = new JSONObject();
+            data.put("version_name", verName);
+            data.put("url", downloadUrl);
+            data.put("log", body);
+            data.put("force", false);
             return data;
         } catch (Exception e) { return null; }
+    }
+
+    /** 语义化版本比较: a>b 返回>0, a<b 返回<0, 相等返回0 (正确处理 7.10>7.9) */
+    private static int compareVersion(String a, String b) {
+        if (a == null) a = "";
+        if (b == null) b = "";
+        String[] pa = a.split("\\.");
+        String[] pb = b.split("\\.");
+        int n = Math.max(pa.length, pb.length);
+        for (int i = 0; i < n; i++) {
+            int x = i < pa.length ? pv(pa[i]) : 0;
+            int y = i < pb.length ? pv(pb[i]) : 0;
+            if (x != y) return x - y;
+        }
+        return 0;
+    }
+    private static int pv(String s) {
+        try { return Integer.parseInt(s.trim()); }
+        catch (Exception e) { return 0; }
     }
 
     /**

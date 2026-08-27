@@ -976,6 +976,26 @@ public class AdvActivity extends Activity {
         }
     }
 
+    /** 语义化版本比较: 按点分数字逐段比较, 正确处理 7.10 > 7.9
+     *  返回 >0 表示 a>b, <0 表示 a<b, 0 表示相等 */
+    private static int compareVersions(String a, String b) {
+        if (a == null) a = "";
+        if (b == null) b = "";
+        String[] pa = a.split("\\.");
+        String[] pb = b.split("\\.");
+        int n = Math.max(pa.length, pb.length);
+        for (int i = 0; i < n; i++) {
+            int x = i < pa.length ? parseIntSafe(pa[i]) : 0;
+            int y = i < pb.length ? parseIntSafe(pb[i]) : 0;
+            if (x != y) return x - y;
+        }
+        return 0;
+    }
+    private static int parseIntSafe(String s) {
+        try { return Integer.parseInt(s.trim()); }
+        catch (Exception e) { return 0; }
+    }
+
     /** 构建统一卡片容器 */
     private LinearLayout buildMoreCard() {
         MdCard card = new MdCard(this, MdCard.OUTLINED, false);
@@ -6626,7 +6646,7 @@ i.setType("text/plain");
                     }
                     // 当前版本号 (从方法外层 curVer 读取)
                     final String tagVer = tag.startsWith("v") ? tag.substring(1) : tag;
-                    final boolean hasNew = !tagVer.equals(curVer) && tagVer.compareTo(curVer) > 0;
+                    final boolean hasNew = compareVersions(tagVer, curVer) > 0;
                     final String verTag = tag.isEmpty() ? "未知" : tag;
                     ui.post(new Runnable() {
                         public void run() {

@@ -14,6 +14,23 @@ import org.json.JSONObject;
  *  - 每周一次 → 无论公告是否变化都提醒 (存 weekly)
  */
 public class CheckReceiver extends BroadcastReceiver {
+    /** 语义化版本比较: a>b 返回>0 (正确处理 7.10>7.9) */
+    private static int compareVer(String a, String b) {
+        String[] pa = (a == null ? "" : a).split("\\.");
+        String[] pb = (b == null ? "" : b).split("\\.");
+        int n = Math.max(pa.length, pb.length);
+        for (int i = 0; i < n; i++) {
+            int x = i < pa.length ? pvi(pa[i]) : 0;
+            int y = i < pb.length ? pvi(pb[i]) : 0;
+            if (x != y) return x - y;
+        }
+        return 0;
+    }
+    private static int pvi(String s) {
+        try { return Integer.parseInt(s.trim()); }
+        catch (Exception e) { return 0; }
+    }
+
     @Override
     public void onReceive(final Context context, Intent intent) {
         final Context app = context.getApplicationContext();
@@ -23,18 +40,23 @@ public class CheckReceiver extends BroadcastReceiver {
                 try {
                     JSONObject r = Backend.backgroundCheck(app);
                     SharedPreferences sp = app.getSharedPreferences("check", 0);
-                    int cur = app.getPackageManager()
-                            .getPackageInfo(app.getPackageName(), 0).versionCode;
+                    String curName = "";
+                    try {
+                        curName = app.getPackageManager()
+                                .getPackageInfo(app.getPackageName(), 0).versionName;
+                    } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
 
                     // 1. 新版本 → 通知 (同版本只提醒一次)
                     JSONObject v = r.optJSONObject("update");
-                    if (v != null && v.optInt("version_code", -1) > cur) {
+                    if (v != null) {
                         String vn = v.optString("version_name", "");
-                        String reminded = sp.getString("reminded_version", "");
-                        if (!reminded.equals(vn)) {
-                            sp.edit().putString("reminded_version", vn).apply();
-                            Notifier.post(app, "发现新版本 v" + vn,
-                                    "点击打开应用查看更新内容");
+                        if (!vn.isEmpty() && !vn.equals(curName) && compareVer(vn, curName) > 0) {
+                            String reminded = sp.getString("reminded_version", "");
+                            if (!reminded.equals(vn)) {
+                                sp.edit().putString("reminded_version", vn).apply();
+                                Notifier.post(app, "发现新版本 v" + vn,
+                                        "点击打开应用查看更新内容");
+                            }
                         }
                     }
 
