@@ -48,6 +48,7 @@ public class IconFont {
     public static final String SMART_TOY = "\uE65F";      // AI 头像 (auto_awesome ✨) — 仅用于引用, 实际用 Icons.AI_AVATAR
     public static final String PERSON = "\uE7FD";         // 用户头像
     public static final String INFO = "\uE88E";           // info (关于)
+    public static final String SYSTEM_UPDATE = "\uE923"; // 系统更新 (system_update)
     public static final String EXPAND_MORE = "\uE5CF";   // 展开 (expand_more)
     public static final String EXPAND_LESS = "\uE5CE";   // 收起 (expand_less)
     public static final String DELETE = "\uE872";         // 垃圾桶 (delete)

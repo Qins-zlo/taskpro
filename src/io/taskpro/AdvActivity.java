@@ -876,6 +876,10 @@ public class AdvActivity extends Activity {
         card3.addView(moreItem(IconFont.BUG, "错误日志", "查看崩溃记录", new Runnable() {
             public void run() { showCrashLog(); }
         }));
+        card3.addView(divider());
+        card3.addView(moreItem(IconFont.SYSTEM_UPDATE, "检查更新", "GitHub 最新发布版", new Runnable() {
+            public void run() { checkGitHubUpdate(); }
+        }));
         page.addView(card3);
         page.addView(spacer(dp(12)));
 
@@ -943,11 +947,11 @@ public class AdvActivity extends Activity {
             public void run() { showSponsor(); }
         }));
         card5.addView(divider());
-        card5.addView(moreItem(IconFont.INFO, "关于", "v7.65 · 查看详情", new Runnable() {
+        card5.addView(moreItem(IconFont.INFO, "关于", "v" + appVersion() + " · 查看详情", new Runnable() {
             public void run() {
                 MdDialog d = new MdDialog(AdvActivity.this);
                 d.title("关于 定时任务Pro");
-                d.message("版本: v7.65\n"
+                d.message("版本: v" + appVersion() + "\n"
                         + "引擎: 纯 Java 程序化 UI\n"
                         + "运行时: Python 3 + Shell\n"
                         + "AI 助手: OpenAI 兼容 API\n"
@@ -962,6 +966,15 @@ public class AdvActivity extends Activity {
     }
 
     // ─── 辅助方法 ───
+
+    /** 当前 App 版本名 (从 PackageInfo 动态读取, 与 AndroidManifest 保持同步) */
+    private String appVersion() {
+        try {
+            return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+        } catch (Exception e) {
+            return "7.65";
+        }
+    }
 
     /** 构建统一卡片容器 */
     private LinearLayout buildMoreCard() {
@@ -6563,6 +6576,132 @@ i.setType("text/plain");
     }
 
     /** 错误日志 */
+    /** 检查 GitHub 最新发布版更新 */
+    private void checkGitHubUpdate() {
+        final String curVer = appVersion();
+        final MdDialog d = new MdDialog(this);
+        d.title("检查更新");
+        final LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        final TextView status = new TextView(this);
+        status.setText("正在检查 GitHub 最新版本…");
+        status.setTextColor(MdTheme.onSurfaceVariant(this));
+        status.setTextSize(13);
+        status.setPadding(0, dp(8), 0, dp(8));
+        box.addView(status);
+        d.content(box);
+        d.show();
+        new Thread(new Runnable() {
+            public void run() {
+                try {
+                    java.net.URL url = new java.net.URL("https://api.github.com/repos/Qins-zlo/taskpro/releases/latest");
+                    java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+                    conn.setRequestMethod("GET");
+                    conn.setConnectTimeout(10000);
+                    conn.setReadTimeout(10000);
+                    conn.setRequestProperty("Accept", "application/vnd.github+json");
+                    int code = conn.getResponseCode();
+                    if (code != 200) {
+                        ui.post(new Runnable() { public void run() { status.setText("无法检查更新 (HTTP " + code + ")"); } });
+                        return;
+                    }
+                    java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream(), "UTF-8"));
+                    StringBuilder sb = new StringBuilder();
+                    String line;
+                    while ((line = br.readLine()) != null) sb.append(line);
+                    br.close();
+                    conn.disconnect();
+                    org.json.JSONObject releaseJson = new org.json.JSONObject(sb.toString());
+                    final String tag = releaseJson.optString("tag_name", "");
+                    final String releaseName = releaseJson.optString("name", tag);
+                    final String body = releaseJson.optString("body", "");
+                    final String htmlUrl = releaseJson.optString("html_url", "https://github.com/Qins-zlo/taskpro/releases");
+                    // 获取下载链接 (第一个 APK asset)
+                    org.json.JSONArray assets = releaseJson.optJSONArray("assets");
+                    final String downloadUrl;
+                    if (assets != null && assets.length() > 0) {
+                        downloadUrl = assets.optJSONObject(0).optString("browser_download_url", "");
+                    } else {
+                        downloadUrl = "";
+                    }
+                    // 当前版本号 (从方法外层 curVer 读取)
+                    final String tagVer = tag.startsWith("v") ? tag.substring(1) : tag;
+                    final boolean hasNew = !tagVer.equals(curVer) && tagVer.compareTo(curVer) > 0;
+                    final String verTag = tag.isEmpty() ? "未知" : tag;
+                    ui.post(new Runnable() {
+                        public void run() {
+                            d.dismiss();
+                            final MdDialog rd = new MdDialog(AdvActivity.this);
+                            rd.title("检查更新");
+                            LinearLayout rbox = new LinearLayout(AdvActivity.this);
+                            rbox.setOrientation(LinearLayout.VERTICAL);
+                            TextView tv = new TextView(AdvActivity.this);
+                            if (hasNew) {
+                                tv.setText("当前版本: v" + curVer + "\n"
+                                        + "最新版本: " + verTag + "\n\n"
+                                        + "发现新版本! 建议更新。");
+                                tv.setTextColor(0xFFE53935);
+                            } else {
+                                tv.setText("当前版本: v" + curVer + "\n"
+                                        + "最新版本: " + verTag + "\n\n"
+                                        + "已是最新版本。");
+                                tv.setTextColor(MdTheme.onSurface(AdvActivity.this));
+                            }
+                            tv.setTextSize(14);
+                            tv.setPadding(0, 0, 0, dp(8));
+                            rbox.addView(tv);
+                            if (!body.isEmpty()) {
+                                TextView bodyTv = new TextView(AdvActivity.this);
+                                String shortBody = body.length() > 500 ? body.substring(0, 500) + "..." : body;
+                                bodyTv.setText(shortBody);
+                                bodyTv.setTextColor(MdTheme.onSurfaceVariant(AdvActivity.this));
+                                bodyTv.setTextSize(11);
+                                bodyTv.setTypeface(Typeface.MONOSPACE);
+                                bodyTv.setPadding(0, dp(4), 0, dp(6));
+                                bodyTv.setMaxLines(8);
+                                rbox.addView(bodyTv);
+                            }
+                            rd.content(rbox);
+                            rd.action("关闭", new Runnable() { public void run() { rd.dismiss(); } });
+                            if (!downloadUrl.isEmpty()) {
+                                rd.actionPrimary("下载", new Runnable() {
+                                    public void run() {
+                                        rd.dismiss();
+                                        // 用浏览器打开下载链接
+                                        try {
+                                            Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl));
+                                            startActivity(i);
+                                        } catch (Exception e) {
+                                            MdSnackbar.show(root, "无法打开浏览器: " + e.getMessage());
+                                        }
+                                    }
+                                });
+                            }
+                            if (hasNew && !htmlUrl.isEmpty()) {
+                                rd.action("查看详情", new Runnable() {
+                                    public void run() {
+                                        try {
+                                            Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(htmlUrl));
+                                            startActivity(i);
+                                        } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
+                                    }
+                                });
+                            }
+                            rd.show();
+                        }
+                    });
+                } catch (final Exception e) {
+                    ui.post(new Runnable() {
+                        public void run() {
+                            d.dismiss();
+                            MdSnackbar.show(root, "检查更新失败: " + e.getMessage());
+                        }
+                    });
+                }
+            }
+        }).start();
+    }
+
     private void showCrashLog() {
         java.io.File f = new java.io.File(getFilesDir(), "crash.log");
         String content = "";
@@ -6700,7 +6839,7 @@ i.setType("text/plain");
             // 1. manifest
             JSONObject manifest = new JSONObject();
             manifest.put("app", "taskpro");
-            manifest.put("version", "7.65");
+            manifest.put("version", appVersion());
             manifest.put("time", new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.CHINA)
                     .format(new java.util.Date()));
             zos.putNextEntry(new java.util.zip.ZipEntry("manifest.json"));

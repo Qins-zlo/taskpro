@@ -35,10 +35,23 @@ $AAPT2 link -o $OUT/base.apk \
 }
 
 echo "[3/6] javac"
+# 构建时注入 GitHub bot token: 从环境变量 GH_BOT_TOKEN 替换源码占位符
+# (保证公开仓库源码不含真实 token; 编译后自动恢复)
+BK=$OUT/Backend.java.bak
+if [ -n "$GH_BOT_TOKEN" ]; then
+  cp $SRC/io/taskpro/Backend.java $BK
+  sed -i "s/REPLACE_WITH_BUILD_INJECTED_TOKEN/$GH_BOT_TOKEN/g" $SRC/io/taskpro/Backend.java
+  echo "  注入 GH_BOT_TOKEN (len=${#GH_BOT_TOKEN})"
+fi
 find $SRC -name '*.java' > $OUT/sources.txt
 javac -d $DEX -cp $ANDROID_JAR -encoding UTF-8 \
   -source 11 -target 11 \
   @$OUT/sources.txt $GEN/io/taskpro/R.java 2>&1
+# 恢复源码 (移除注入的 token)
+if [ -f "$BK" ]; then
+  mv $BK $SRC/io/taskpro/Backend.java
+  echo "  已恢复源码 (移除 token)"
+fi
 
 echo "[4/6] d8"
 java -cp $D8JAR com.android.tools.r8.D8 \

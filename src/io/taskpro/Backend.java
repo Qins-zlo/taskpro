@@ -24,6 +24,187 @@ public class Backend {
     /** 服务器地址 (内置固定, 用户不可修改) */
     public static final String DEFAULT_BASE = "https://qins.7r.fit/api";
 
+    // ════════════════════════════════════════════════════════
+    // GitHub 脚本市场 (方案B: 读取走 raw 匿名, 上传走 Issue 审核)
+    // ════════════════════════════════════════════════════════
+    /** 脚本市场 GitHub 仓库 (owner/repo) */
+    public static final String GH_REPO = "Qins-zlo/taskpro-scripts";
+    /** GitHub raw 基础地址 */
+    private static final String GH_RAW = "https://raw.githubusercontent.com/" + GH_REPO + "/main/";
+    /** GitHub API 基础地址 */
+    private static final String GH_API = "https://api.github.com/repos/" + GH_REPO;
+    /** 上传用的 bot token.
+     *  源码用占位符, 构建时通过 build.sh 从环境变量 GH_BOT_TOKEN 注入真实 token,
+     *  避免把真实 token 提交到公开仓库。
+     *  若未注入, 则从 BuildConfig 读取 (兼容旧构建). 仅需 scripts 仓库 issues 写权限。 */
+    private static final String GH_BOT_TOKEN = "REPLACE_WITH_BUILD_INJECTED_TOKEN";
+    /** 脚本前缀标记, 用于区分脚本提交 Issue */
+    private static final String ISSUE_PREFIX = "[script] ";
+    /** 提交审核状态: 通过后由作者把 Issue 关闭并把脚本合入 scripts/ 目录 */
+    private static final String ISSUE_MARK = "<!-- taskpro-script -->";
+
+    /** GitHub 读取列表: 匿名读 index.json. 优先 API(实时), 失败回退 raw(有缓存) */
+    public static JSONArray fetchScriptsGithub() {
+        try {
+            JSONObject o = new JSONObject(get(GH_API + "/contents/index.json"));
+            String content = decodeBase64(o.optString("content", ""));
+            if (!content.isEmpty()) {
+                JSONObject idx = new JSONObject(content);
+                return idx.optJSONArray("scripts");
+            }
+        } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
+        // 回退: raw (可能有 CDN 缓存延迟)
+        try {
+            JSONObject idx = new JSONObject(get(GH_RAW + "index.json"));
+            return idx.optJSONArray("scripts");
+        } catch (Exception e) { return null; }
+    }
+
+    /** GitHub 读取脚本内容: 匿名读 scripts/<name>/index.json. 优先 API, 失败回退 raw */
+    public static String fetchScriptContentGithub(String name) {
+        try {
+            JSONObject o = new JSONObject(get(GH_API + "/contents/scripts/" + name + "/index.json"));
+            String content = decodeBase64(o.optString("content", ""));
+            if (!content.isEmpty()) {
+                JSONObject idx = new JSONObject(content);
+                return idx.optString("content", null);
+            }
+        } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
+        // 回退: raw
+        try {
+            JSONObject idx = new JSONObject(get(GH_RAW + "scripts/" + name + "/index.json"));
+            return idx.optString("content", null);
+        } catch (Exception e) { return null; }
+    }
+
+    /** base64 解码 (兼容 Android) */
+    private static String decodeBase64(String s) {
+        try {
+            byte[] b = android.util.Base64.decode(s, android.util.Base64.DEFAULT);
+            return new String(b, "UTF-8");
+        } catch (Exception e) {
+            try {
+                byte[] b = java.util.Base64.getDecoder().decode(s);
+                return new String(b, "UTF-8");
+            } catch (Exception e2) { return ""; }
+        }
+    }
+
+    /**
+     * GitHub 提交脚本: 创建带标记的 Issue, 待作者审核
+     * 返回结果消息
+     */
+    public static String submitScriptGithub(String name, String type, String ver,
+                                            String note, String content, String author, String uid) {
+        try {
+            String title = ISSUE_PREFIX + name + " v" + (ver.isEmpty() ? "1.0" : ver);
+            String body = ISSUE_MARK + "\n\n"
+                    + "**名称**: " + name + "\n"
+                    + "**类型**: " + type + "\n"
+                    + "**版本**: " + (ver.isEmpty() ? "1.0" : ver) + "\n"
+                    + "**作者**: " + (author.isEmpty() ? "匿名" : author) + "\n"
+                    + "**UID**: " + uid + "\n"
+                    + "**说明**: " + note + "\n\n"
+                    + "```" + type + "\n" + content + "\n```";
+            URL u = new URL(GH_API + "/issues");
+            HttpURLConnection c = (HttpURLConnection) u.openConnection();
+            c.setRequestMethod("POST");
+            c.setDoOutput(true);
+            c.setConnectTimeout(8000);
+            c.setReadTimeout(15000);
+            c.setRequestProperty("Authorization", "token " + GH_BOT_TOKEN);
+            c.setRequestProperty("Accept", "application/vnd.github+json");
+            c.setRequestProperty("Content-Type", "application/json");
+            JSONObject payload = new JSONObject();
+            payload.put("title", title);
+            payload.put("body", body);
+            java.io.OutputStream os = c.getOutputStream();
+            os.write(payload.toString().getBytes("UTF-8"));
+            os.close();
+            int code = c.getResponseCode();
+            if (code == 201) return "已提交, 待作者审核";
+            // 读取错误信息
+            java.io.InputStream es = c.getErrorStream();
+            String err = "";
+            if (es != null) {
+                java.io.BufferedReader r = new java.io.BufferedReader(
+                        new java.io.InputStreamReader(es, "UTF-8"));
+                StringBuilder sb = new StringBuilder();
+                String l;
+                while ((l = r.readLine()) != null) sb.append(l);
+                r.close();
+                err = sb.toString();
+            }
+            return "提交失败 (" + code + ")";
+        } catch (Exception e) {
+            return "提交失败: " + e.toString();
+        }
+    }
+
+    /**
+     * GitHub 查询我的提交: 用 API 列出所有脚本 Issue, 过滤 uid
+     * 返回 {name, ver, time, status, reason} 列表
+     */
+    public static JSONArray myScriptsGithub(String uid) {
+        try {
+            String urlStr = GH_API + "/issues?state=all&per_page=100";
+            URL u = new URL(urlStr);
+            HttpURLConnection c = (HttpURLConnection) u.openConnection();
+            c.setConnectTimeout(8000);
+            c.setReadTimeout(15000);
+            c.setRequestProperty("User-Agent", "taskpro-android");
+            c.setRequestProperty("Accept", "application/vnd.github+json");
+            int code = c.getResponseCode();
+            if (code != 200) return null;
+            java.io.BufferedReader r = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(c.getInputStream(), "UTF-8"));
+            StringBuilder sb = new StringBuilder();
+            String l;
+            while ((l = r.readLine()) != null) sb.append(l);
+            r.close();
+            JSONArray arr = new JSONArray(sb.toString());
+            JSONArray out = new JSONArray();
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject issue = arr.optJSONObject(i);
+                if (issue == null) continue;
+                String title = issue.optString("title", "");
+                if (!title.startsWith(ISSUE_PREFIX)) continue;
+                String body = issue.optString("body", "");
+                if (body.indexOf("**UID**: " + uid) < 0) continue;
+                JSONObject item = new JSONObject();
+                // 提取纯名称 (去掉版本号)
+                String fullName = title.substring(ISSUE_PREFIX.length());
+                String pureName = fullName;
+                int sp = fullName.indexOf(" v");
+                if (sp > 0) pureName = fullName.substring(0, sp);
+                item.put("name", pureName);
+                // 提取版本
+                int vIdx = fullName.indexOf(" v");
+                String ver = "1.0";
+                if (vIdx >= 0) ver = fullName.substring(vIdx + 2);
+                item.put("ver", ver);
+                String created = issue.optString("created_at", "");
+                item.put("time", created.length() >= 10 ? created.substring(0, 10) : created);
+                String state = issue.optString("state", "open");
+                String status;
+                String reason = "";
+                // 若 Issue 被关闭且带 [merged] 标记, 视为已上架
+                if ("closed".equals(state) && body.contains("[merged]")) {
+                    status = "published";
+                } else if ("closed".equals(state)) {
+                    status = "rejected";
+                    reason = "未通过审核";
+                } else {
+                    status = "pending";
+                }
+                item.put("status", status);
+                item.put("reason", reason);
+                out.put(item);
+            }
+            return out;
+        } catch (Exception e) { return null; }
+    }
+
     public static String baseUrl(Context ctx) {
         return DEFAULT_BASE;
     }
@@ -106,8 +287,18 @@ public class Backend {
      * 注: 返回后已记录"已看到", 下次内容不变则不再返回
      */
     /** 拉取脚本市场列表 (同步, 调用方开线程)
-     *  返回列表 JSONArray, 保留 content 在缓存中供安装时使用 */
+     *  返回列表 JSONArray, 保留 content 在缓存中供安装时使用
+     *  优先走 GitHub raw (匿名, 免费), 失败回退到旧后端 */
     public static JSONArray fetchScripts(Context ctx) {
+        // GitHub 方案: 匿名读 index.json
+        try {
+            JSONArray arr = fetchScriptsGithub();
+            if (arr != null) {
+                fetchScriptsCache = arr;
+                return arr;
+            }
+        } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
+        // 回退: 旧后端
         String base = baseUrl(ctx);
         if (base.isEmpty()) return null;
         try {
@@ -120,8 +311,14 @@ public class Backend {
     }
 
     /** 从缓存列表中获取脚本内容 (不再单独请求后端, 因为后端可能不支持 action=script 端点)
-     *  调用方需确保 fetchScripts 已被调用并缓存 */
+     *  调用方需确保 fetchScripts 已被调用并缓存
+     *  优先走 GitHub raw */
     public static String fetchScriptContent(Context ctx, String name) {
+        // GitHub 方案: 匿名读 scripts/<name>/index.json
+        try {
+            String content = fetchScriptContentGithub(name);
+            if (content != null) return content;
+        } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
         // 尝试从缓存列表中提取
         JSONArray cached = fetchScriptsCache;
         if (cached != null) {
@@ -175,9 +372,13 @@ public class Backend {
         return result;
     }
 
-    /** 提交脚本到市场 (待审核): 返回结果消息 */
+    /** 提交脚本到市场 (GitHub Issue 审核流, 待作者审核): 返回结果消息 */
     public static String submitScript(Context ctx, String name, String type, String ver,
                                       String note, String content, String author, String uid) {
+        // GitHub 方案: 创建 Issue
+        String gh = submitScriptGithub(name, type, ver, note, content, author, uid);
+        if (gh != null && !gh.startsWith("提交失败")) return gh;
+        // 回退: 旧后端
         String base = baseUrl(ctx);
         if (base.isEmpty()) return "未设置服务器地址 (更多页 → 检查更新)";
         try {
@@ -209,8 +410,14 @@ public class Backend {
         } catch (Exception e) { return "提交失败: " + e.toString(); }
     }
 
-    /** 查询我的提交 (POST uid): 返回脚本状态列表或 null */
+    /** 查询我的提交 (POST uid): 返回脚本状态列表或 null (GitHub Issue 审核流) */
     public static JSONArray myScripts(Context ctx, String uid) {
+        // GitHub 方案: 查询脚本 Issue
+        try {
+            JSONArray gh = myScriptsGithub(uid);
+            if (gh != null) return gh;
+        } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
+        // 回退: 旧后端
         String base = baseUrl(ctx);
         if (base.isEmpty()) return null;
         try {
