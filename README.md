@@ -21,7 +21,7 @@
 - Built-in **cURL** with HTTPS/JSON/Cookie support
 - **Variable system**: declare variables in comments -> auto-injected as environment variables
 - Sensitive info auto-masked (`TOKEN` / `PASSWORD` / `COOKIE` / `SECRET` / `APIKEY`)
-- **Script marketplace**: install/update scripts from backend
+- **Script marketplace**: browse/install/update scripts from the GitHub script repo
 
 ### Immersive Terminal
 - Interactive shell with Termux-style extra-keys keyboard
