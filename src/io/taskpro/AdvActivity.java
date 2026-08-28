@@ -972,7 +972,7 @@ public class AdvActivity extends Activity {
         try {
             return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
         } catch (Exception e) {
-            return "7.65";
+            return "7.66";
         }
     }
 

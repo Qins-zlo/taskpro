@@ -4,7 +4,7 @@
 
 > 一款运行在 Android 上的**定时任务 / 脚本执行引擎**，内置 Python 3.14 + Node.js + Shell 运行时，无需 root，无需额外安装解释器。
 
-![Android](https://img.shields.io/badge/Platform-Android-3DDC84) ![Python](https://img.shields.io/badge/Runtime-Python%203.14-3776AB) ![Node](https://img.shields.io/badge/Runtime-Node.js-339933) ![Version](https://img.shields.io/badge/Version-7.65-blue)
+![Android](https://img.shields.io/badge/Platform-Android-3DDC84) ![Python](https://img.shields.io/badge/Runtime-Python%203.14-3776AB) ![Node](https://img.shields.io/badge/Runtime-Node.js-339933) ![Version](https://img.shields.io/badge/Version-7.66-blue)
 
 ---
 

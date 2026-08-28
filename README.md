@@ -4,7 +4,7 @@
 
 > An Android **task scheduler / script execution engine** with built-in Python 3.14 + Node.js + Shell runtime. No root required, no extra interpreters to install.
 
-![Android](https://img.shields.io/badge/Platform-Android-3DDC84) ![Python](https://img.shields.io/badge/Runtime-Python%203.14-3776AB) ![Node](https://img.shields.io/badge/Runtime-Node.js-339933) ![Version](https://img.shields.io/badge/Version-7.65-blue)
+![Android](https://img.shields.io/badge/Platform-Android-3DDC84) ![Python](https://img.shields.io/badge/Runtime-Python%203.14-3776AB) ![Node](https://img.shields.io/badge/Runtime-Node.js-339933) ![Version](https://img.shields.io/badge/Version-7.66-blue)
 
 ---
 
