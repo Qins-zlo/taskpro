@@ -644,6 +644,9 @@ private void renderTasks() {
         });
         page.addView(advCard);
 
+        page.addView(menuItem("查看公告", "查看最新版本公告与通知", new Runnable() {
+            public void run() { showAnnounceFromServer(); }
+        }));
         page.addView(menuItem("后台常驻引导", "防被系统清理, 保证定时生效", new Runnable() {
             public void run() { guideBackground(); }
         }));
@@ -825,6 +828,10 @@ private void renderTasks() {
     private void showAnnounceDialog(JSONArray arr) {
         final MdDialog d = new MdDialog(this);
         d.title("公告");
+        // 公告/广告弹窗稳定性: 禁止点外部遮罩和返回键关闭, 只能点按钮关闭
+        // (避免用户误点弹窗旁边导致弹窗消失, 看不了公告/广告)
+        try { d.setCanceledOnTouchOutside(false); } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
+        try { d.setCancelable(false); } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
         ScrollView sc = new ScrollView(this);
         LinearLayout list = new LinearLayout(this);
         list.setOrientation(LinearLayout.VERTICAL);
@@ -847,7 +854,59 @@ private void renderTasks() {
         sc.addView(list);
         d.content(sc);
         d.action("知道了", new Runnable() { public void run() { d.dismiss(); } });
+        // 查看广告按钮: 若公告带 ad_url/url 字段, 点击用浏览器打开广告
+        final String adUrl = firstAdUrl(arr);
+        if (!adUrl.isEmpty()) {
+            d.actionPrimary("查看广告", new Runnable() {
+                public void run() {
+                    try {
+                        Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(adUrl));
+                        startActivity(i);
+                    } catch (Exception e) {
+                        try { MdSnackbar.show(root, "无法打开广告链接"); } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
+                    }
+                }
+            });
+        }
         d.show();
+    }
+
+    /** 从公告数组中取第一条携带的广告链接 (ad_url 优先, 其次 url) */
+    private String firstAdUrl(JSONArray arr) {
+        try {
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject o = arr.optJSONObject(i);
+                if (o == null) continue;
+                String u = o.optString("ad_url", "");
+                if (u.isEmpty()) u = o.optString("url", "");
+                if (!u.isEmpty()) return u;
+            }
+        } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
+        return "";
+    }
+
+    /** 手动查看公告 (更多页入口): 强制拉取最新公告, 失败给提示 */
+    private void showAnnounceFromServer() {
+        final MdDialog loading = new MdDialog(this);
+        loading.title("公告");
+        loading.message("正在加载最新公告…");
+        loading.hideActions();
+        loading.show();
+        new Thread(new Runnable() {
+            public void run() {
+                final JSONArray arr = Backend.fetchAnnounceForce(MainActivity.this);
+                runOnUiThread(new Runnable() {
+                    public void run() {
+                        try { loading.dismiss(); } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
+                        if (arr != null && arr.length() > 0) {
+                            showAnnounceDialog(arr);
+                        } else {
+                            try { MdSnackbar.show(root, "暂无公告或网络异常"); } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
+                        }
+                    }
+                });
+            }
+        }).start();
     }
 
     /** 查看崩溃日志 (files/crash.log) */

@@ -582,27 +582,82 @@ public class Backend {
     }
 
     /**
+     * 拉取公告原文 (JSON 字符串): 多数据源依次尝试, 提升稳定性
+     * 数据源: 1) GitHub API (带token, base64 包装) 2) raw.githubusercontent.com (纯 JSON)
+     *         3) jsDelivr CDN (纯 JSON, 国内可达性好) 4) ghproxy 镜像加速
+     * 返回 announce JSON 文本 (含 items 数组), 全部失败返回 null
+     */
+    private static String fetchAnnounceRaw() {
+        // 1. GitHub API (带 token, base64 包装)
+        try {
+            String raw = getAuth(GH_API + "/contents/announce.json");
+            if (raw != null) {
+                JSONObject o = new JSONObject(raw);
+                String content = decodeBase64(o.optString("content", ""));
+                if (!content.isEmpty()) return content;
+            }
+        } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
+        // 2. raw.githubusercontent.com (纯 JSON)
+        try {
+            String raw = get(GH_RAW + "announce.json");
+            if (raw != null && raw.trim().startsWith("{")) return raw;
+        } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
+        // 3. jsDelivr CDN (纯 JSON, 国内可达性好)
+        try {
+            String cdn = get("https://cdn.jsdelivr.net/gh/" + GH_REPO + "@main/announce.json");
+            if (cdn != null && cdn.trim().startsWith("{")) return cdn;
+        } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
+        // 4. ghproxy 镜像加速
+        try {
+            String ghp = get("https://ghproxy.net/" + GH_RAW + "announce.json");
+            if (ghp != null && ghp.trim().startsWith("{")) return ghp;
+        } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
+        return null;
+    }
+
+    /** 解析公告 JSON 内容为 items 数组 */
+    private static JSONArray parseAnnounceItems(String content) {
+        try {
+            JSONObject ann = new JSONObject(content);
+            JSONArray items = ann.optJSONArray("items");
+            if (items == null || items.length() == 0) return null;
+            return items;
+        } catch (Exception e) { return null; }
+    }
+
+    /**
      * 拉取公告 (GitHub 数据源): 从脚本仓库 announce.json 读取
      * 内容与上次看到的一致(未变化)返回 null; 变化了返回公告数组
      * 返回格式: [{title, content, time}, ...]
      */
     public static JSONArray checkAnnounceGithub(Context ctx) {
         try {
-            String raw = getAuth(GH_API + "/contents/announce.json");
-            if (raw == null) raw = get(GH_RAW + "announce.json");
-            if (raw == null) return null;
-            JSONObject o = new JSONObject(raw);
-            String content = decodeBase64(o.optString("content", ""));
-            if (content.isEmpty()) return null;
-            JSONObject ann = new JSONObject(content);
-            JSONArray items = ann.optJSONArray("items");
-            if (items == null || items.length() == 0) return null;
+            String content = fetchAnnounceRaw();
+            if (content == null) return null;
+            JSONArray items = parseAnnounceItems(content);
+            if (items == null) return null;
             // 去重: 用内容 hash 判断是否变化
             String h = md5(content);
             SharedPreferences sp = ctx.getSharedPreferences(PREFS, 0);
             String last = sp.getString(KEY_ANN_HASH, "");
             if (h.equals(last)) return null;   // 公告未变化, 不显示
             sp.edit().putString(KEY_ANN_HASH, h).apply();
+            return items;
+        } catch (Exception e) { return null; }
+    }
+
+    /** 强制获取最新公告 (忽略去重, 供"查看公告"手动入口使用): 失败返回 null */
+    public static JSONArray fetchAnnounceForce(Context ctx) {
+        try {
+            String content = fetchAnnounceRaw();
+            if (content == null) return null;
+            JSONArray items = parseAnnounceItems(content);
+            if (items == null) return null;
+            // 同步去重标记, 避免手动查看后下次自动弹窗再次打扰
+            String h = md5(content);
+            try {
+                ctx.getSharedPreferences(PREFS, 0).edit().putString(KEY_ANN_HASH, h).apply();
+            } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
             return items;
         } catch (Exception e) { return null; }
     }
