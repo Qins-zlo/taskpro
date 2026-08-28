@@ -367,12 +367,25 @@ public class Backend {
     /** 拉取脚本市场列表 (同步, 调用方开线程)
      *  返回列表 JSONArray, 保留 content 在缓存中供安装时使用
      *  优先走 GitHub raw (匿名, 免费), 失败回退到旧后端 */
+    private static final String KEY_LIST_CACHE = "market_list_cache";
+    private static final String KEY_LIST_TIME = "market_list_time";
+    private static final long LIST_CACHE_TTL = 5 * 60 * 1000L;  // 5 分钟
+
     public static JSONArray fetchScripts(Context ctx) {
+        // 先查磁盘缓存 (5 分钟内有效)
+        JSONArray cached = loadScriptListCache(ctx);
+        if (cached != null) return cached;
+        return fetchScriptsForce(ctx);
+    }
+
+    /** 强制刷新脚本列表 (绕过磁盘缓存, 用于手动刷新) */
+    public static JSONArray fetchScriptsForce(Context ctx) {
         // GitHub 方案: 匿名读 index.json
         try {
             JSONArray arr = fetchScriptsGithub();
             if (arr != null) {
                 fetchScriptsCache = arr;
+                saveScriptListCache(ctx, arr);
                 return arr;
             }
         } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
@@ -384,24 +397,53 @@ public class Backend {
             if (o.optInt("code") != 0) return null;
             JSONArray arr = o.optJSONArray("data");
             fetchScriptsCache = arr;  // 缓存供安装时取 content
+            saveScriptListCache(ctx, arr);
             return arr;
         } catch (Exception e) { return null; }
     }
 
-    /** 从缓存列表中获取脚本内容 (不再单独请求后端, 因为后端可能不支持 action=script 端点)
-     *  调用方需确保 fetchScripts 已被调用并缓存
-     *  优先走 GitHub raw */
+    /** 读取脚本列表磁盘缓存 (超时则忽略) */
+    private static JSONArray loadScriptListCache(Context ctx) {
+        try {
+            SharedPreferences sp = ctx.getSharedPreferences(PREFS, 0);
+            long t = sp.getLong(KEY_LIST_TIME, 0);
+            if (System.currentTimeMillis() - t > LIST_CACHE_TTL) return null;
+            String s = sp.getString(KEY_LIST_CACHE, "");
+            if (s.isEmpty()) return null;
+            return new JSONArray(s);
+        } catch (Exception e) { return null; }
+    }
+
+    /** 保存脚本列表磁盘缓存 */
+    private static void saveScriptListCache(Context ctx, JSONArray arr) {
+        try {
+            ctx.getSharedPreferences(PREFS, 0).edit()
+                    .putString(KEY_LIST_CACHE, arr.toString())
+                    .putLong(KEY_LIST_TIME, System.currentTimeMillis())
+                    .apply();
+        } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
+    }
+
+    /** 脚本内容内存缓存: 减少重复请求 GitHub (同一脚本多次预览/安装) */
+    private static final java.util.Map<String, String> CONTENT_CACHE = new java.util.concurrent.ConcurrentHashMap<String, String>();
+
     public static String fetchScriptContent(Context ctx, String name) {
-        // GitHub 方案: 匿名读 scripts/<name>/index.json
+        // 1. 内存缓存 (只缓存成功结果)
+        String cached = CONTENT_CACHE.get(name);
+        if (cached != null) return cached;
+        // 2. GitHub 方案: 匿名读 scripts/<name>/index.json
         try {
             String content = fetchScriptContentGithub(name);
-            if (content != null) return content;
+            if (content != null) {
+                CONTENT_CACHE.put(name, content);
+                return content;
+            }
         } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
-        // 尝试从缓存列表中提取
-        JSONArray cached = fetchScriptsCache;
-        if (cached != null) {
-            for (int i = 0; i < cached.length(); i++) {
-                JSONObject s = cached.optJSONObject(i);
+        // 3. 尝试从缓存列表中提取
+        JSONArray cachedArr = fetchScriptsCache;
+        if (cachedArr != null) {
+            for (int i = 0; i < cachedArr.length(); i++) {
+                JSONObject s = cachedArr.optJSONObject(i);
                 if (s != null && name.equals(s.optString("name", ""))) {
                     String content = s.optString("content", null);
                     if (content != null && !content.isEmpty()) return content;
@@ -430,19 +472,38 @@ public class Backend {
             result.put("update", checkVersion(ctx));
         } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
         try {
+            // 公告: 优先 GitHub announce.json, 回退旧后端
+            JSONArray arr = checkAnnounceGithub(ctx);
+            if (arr != null) {
+                String content = "";
+                try {
+                    String raw = getAuth(GH_API + "/contents/announce.json");
+                    if (raw != null) {
+                        JSONObject o = new JSONObject(raw);
+                        content = decodeBase64(o.optString("content", ""));
+                    }
+                } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
+                String h = content.isEmpty() ? md5(arr.toString()) : md5(content);
+                SharedPreferences sp = ctx.getSharedPreferences(PREFS, 0);
+                String last = sp.getString(KEY_ANN_HASH, "");
+                result.put("announceChanged", !h.equals(last));
+                result.put("announceHash", h);
+                result.put("announce", arr);
+                return result;
+            }
             String base = baseUrl(ctx);
             if (!base.isEmpty()) {
                 String raw = get(base + "/api.php?action=announce");
                 if (raw != null) {
                     JSONObject o = new JSONObject(raw);
                     if (o.optInt("code", -1) == 0) {
-                        JSONArray arr = o.optJSONArray("data");
+                        JSONArray arr2 = o.optJSONArray("data");
                         String h = md5(raw);
                         SharedPreferences sp = ctx.getSharedPreferences(PREFS, 0);
                         String last = sp.getString(KEY_ANN_HASH, "");
                         result.put("announceChanged", !h.equals(last));
                         result.put("announceHash", h);
-                        result.put("announce", arr == null ? new JSONArray() : arr);
+                        result.put("announce", arr2 == null ? new JSONArray() : arr2);
                     }
                 }
             }
@@ -520,7 +581,36 @@ public class Backend {
         } catch (Exception e) { return null; }
     }
 
+    /**
+     * 拉取公告 (GitHub 数据源): 从脚本仓库 announce.json 读取
+     * 内容与上次看到的一致(未变化)返回 null; 变化了返回公告数组
+     * 返回格式: [{title, content, time}, ...]
+     */
+    public static JSONArray checkAnnounceGithub(Context ctx) {
+        try {
+            String raw = getAuth(GH_API + "/contents/announce.json");
+            if (raw == null) raw = get(GH_RAW + "announce.json");
+            if (raw == null) return null;
+            JSONObject o = new JSONObject(raw);
+            String content = decodeBase64(o.optString("content", ""));
+            if (content.isEmpty()) return null;
+            JSONObject ann = new JSONObject(content);
+            JSONArray items = ann.optJSONArray("items");
+            if (items == null || items.length() == 0) return null;
+            // 去重: 用内容 hash 判断是否变化
+            String h = md5(content);
+            SharedPreferences sp = ctx.getSharedPreferences(PREFS, 0);
+            String last = sp.getString(KEY_ANN_HASH, "");
+            if (h.equals(last)) return null;   // 公告未变化, 不显示
+            sp.edit().putString(KEY_ANN_HASH, h).apply();
+            return items;
+        } catch (Exception e) { return null; }
+    }
+
     public static JSONArray checkAnnounce(Context ctx) {        String base = baseUrl(ctx);
+        // 优先 GitHub 公告源
+        JSONArray gh = checkAnnounceGithub(ctx);
+        if (gh != null) return gh;
         if (base.isEmpty()) return null;
         String raw = get(base + "/api.php?action=announce");
         if (raw == null) return null;

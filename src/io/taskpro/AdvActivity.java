@@ -3446,7 +3446,8 @@ i.setType("text/plain");
         marketStatus.setText("正在加载 GitHub 脚本库…");
         new Thread(new Runnable() {
             public void run() {
-                final JSONArray arr = Backend.fetchScripts(AdvActivity.this);
+                // 手动刷新: 强制拉取最新, 绕过 5 分钟磁盘缓存
+                final JSONArray arr = Backend.fetchScriptsForce(AdvActivity.this);
                 cachedMarketArr = arr;  // 缓存供搜索过滤
                 runOnUiThread(new Runnable() {
                     public void run() { renderMarketList(arr); }
