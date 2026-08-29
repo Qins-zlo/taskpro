@@ -13,6 +13,7 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
@@ -60,6 +61,9 @@
         </receiver>
         <service android:name="io.taskpro.ExecService"
             android:exported="false" android:stopWithTask="false" />
+        <service android:name="io.taskpro.McpService"
+            android:exported="false" android:stopWithTask="false"
+            android:foregroundServiceType="dataSync" />
         <provider android:name="io.taskpro.FileShareProvider"
             android:exported="true"
             android:authorities="io.taskpro.fileshare"

@@ -826,6 +826,10 @@ public class AdvActivity extends Activity {
         card1.addView(moreItem(IconFont.DOC, "脚本开发文档", "含 py/js/sh 教程 · Markdown 排版", new Runnable() {
             public void run() { openMore(MORE_DOC); }
         }));
+        card1.addView(divider());
+        card1.addView(moreItem(IconFont.SMART_TOY, "AI 连接 (MCP)", "外部 AI 远程控制 App (Claude/Cursor)", new Runnable() {
+            public void run() { showMcpConfig(); }
+        }));
         page.addView(card1);
         page.addView(spacer(dp(12)));
 
@@ -6619,6 +6623,176 @@ i.setType("text/plain");
     }
 
     /** 错误日志 */
+    // ═══════════════ MCP 服务配置面板 ═══════════════
+    /** 展示 MCP 服务配置对话框: 开关 / 端口 / Token / 连接信息 / 客户端配置示例 */
+    private void showMcpConfig() {
+        final MdDialog d = new MdDialog(this);
+        d.title("AI 连接 (MCP)");
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(2), dp(2), dp(2), dp(2));
+
+        // 说明
+        TextView info = new TextView(this);
+        info.setText("让外部 AI (Claude Desktop / Cursor / 任意 MCP 客户端)\n"
+                + "通过 MCP 协议连接本机, 远程管理定时任务/脚本/环境变量/日志。\n"
+                + "手机与电脑需在同一 WiFi。");
+        info.setTextColor(MdTheme.onSurfaceVariant(this));
+        info.setTextSize(12);
+        info.setPadding(0, dp(2), 0, dp(8));
+        box.addView(info);
+
+        // 开关卡
+        final boolean curEnabled = McpConfig.enabled(this);
+        LinearLayout swRow = new LinearLayout(this);
+        swRow.setOrientation(LinearLayout.HORIZONTAL);
+        swRow.setGravity(Gravity.CENTER_VERTICAL);
+        swRow.setPadding(dp(12), dp(10), dp(12), dp(10));
+        android.graphics.drawable.GradientDrawable swBg = new android.graphics.drawable.GradientDrawable();
+        swBg.setColor(MdTheme.isDark(this) ? 0xFF2A2A2E : 0xFFF1F3F5);
+        swBg.setCornerRadius(dp(12));
+        swRow.setBackground(swBg);
+        swRow.setLayoutParams(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        TextView swTxt = new TextView(this);
+        swTxt.setText("启用 MCP 服务");
+        swTxt.setTextColor(MdTheme.onSurface(this));
+        swTxt.setTextSize(15);
+        swTxt.setTypeface(Typeface.DEFAULT_BOLD);
+        swRow.addView(swTxt, new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        final TextView swV = new TextView(this);
+        swV.setText(curEnabled ? "● 开" : "○ 关");
+        swV.setTextColor(curEnabled ? MdTheme.primary(this) : MdTheme.onSurfaceVariant(this));
+        swV.setTextSize(13);
+        swV.setPadding(dp(8), dp(4), dp(8), dp(4));
+        swV.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                boolean nv = !McpConfig.enabled(AdvActivity.this);
+                McpConfig.setEnabled(AdvActivity.this, nv);
+                swV.setText(nv ? "● 开" : "○ 关");
+                swV.setTextColor(nv ? MdTheme.primary(AdvActivity.this) : MdTheme.onSurfaceVariant(AdvActivity.this));
+                if (nv) {
+                    McpService.start(AdvActivity.this);
+                    MdSnackbar.show(root, "MCP 服务已启动");
+                } else {
+                    McpService.stop(AdvActivity.this);
+                    MdSnackbar.show(root, "MCP 服务已停止");
+                }
+            }
+        });
+        swRow.addView(swV);
+        box.addView(swRow);
+        box.addView(spacer(dp(8)));
+
+        // 连接信息卡 (仅开启时显示)
+        if (McpConfig.enabled(this) || curEnabled) {
+            LinearLayout infoCard = new LinearLayout(this);
+            infoCard.setOrientation(LinearLayout.VERTICAL);
+            infoCard.setPadding(dp(12), dp(10), dp(12), dp(10));
+            android.graphics.drawable.GradientDrawable icBg = new android.graphics.drawable.GradientDrawable();
+            icBg.setColor(MdTheme.isDark(this) ? 0xFF1E1B22 : 0xFFEDE7F6);
+            icBg.setCornerRadius(dp(12));
+            infoCard.setBackground(icBg);
+            TextView epTitle = new TextView(this);
+            epTitle.setText("MCP Endpoint (客户端使用)");
+            epTitle.setTextColor(MdTheme.primary(this));
+            epTitle.setTextSize(12);
+            epTitle.setTypeface(Typeface.DEFAULT_BOLD);
+            infoCard.addView(epTitle);
+            final TextView epTv = new TextView(this);
+            epTv.setText(McpConfig.endpoint(this));
+            epTv.setTextColor(MdTheme.onSurface(this));
+            epTv.setTextSize(13);
+            epTv.setTypeface(Typeface.MONOSPACE);
+            epTv.setPadding(0, dp(4), 0, dp(4));
+            epTv.setTextIsSelectable(true);
+            infoCard.addView(epTv);
+            TextView tkTitle = new TextView(this);
+            tkTitle.setText("访问 Token (Bearer)");
+            tkTitle.setTextColor(MdTheme.primary(this));
+            tkTitle.setTextSize(12);
+            tkTitle.setTypeface(Typeface.DEFAULT_BOLD);
+            tkTitle.setPadding(0, dp(6), 0, 0);
+            infoCard.addView(tkTitle);
+            final TextView tkTv = new TextView(this);
+            tkTv.setText(McpConfig.token(this));
+            tkTv.setTextColor(MdTheme.onSurface(this));
+            tkTv.setTextSize(13);
+            tkTv.setTypeface(Typeface.MONOSPACE);
+            tkTv.setPadding(0, dp(4), 0, dp(4));
+            tkTv.setTextIsSelectable(true);
+            infoCard.addView(tkTv);
+            // 复制按钮
+            LinearLayout btnRow = new LinearLayout(this);
+            btnRow.setOrientation(LinearLayout.HORIZONTAL);
+            btnRow.setGravity(Gravity.END);
+            infoCard.addView(btnRow);
+            TextView copyEp = miniBtn("复制地址", false, new Runnable() {
+                public void run() {
+                    android.content.ClipboardManager cm = (android.content.ClipboardManager)
+                            getSystemService(CLIPBOARD_SERVICE);
+                    cm.setPrimaryClip(android.content.ClipData.newPlainText("mcp_endpoint",
+                            McpConfig.endpoint(AdvActivity.this)));
+                    MdSnackbar.show(root, "已复制 MCP 地址");
+                }
+            });
+            copyEp.setPadding(dp(10), dp(5), dp(10), dp(5));
+            btnRow.addView(copyEp);
+            TextView copyTok = miniBtn("复制 Token", false, new Runnable() {
+                public void run() {
+                    android.content.ClipboardManager cm = (android.content.ClipboardManager)
+                            getSystemService(CLIPBOARD_SERVICE);
+                    cm.setPrimaryClip(android.content.ClipData.newPlainText("mcp_token",
+                            McpConfig.token(AdvActivity.this)));
+                    MdSnackbar.show(root, "已复制 Token");
+                }
+            });
+            copyTok.setPadding(dp(10), dp(5), dp(10), dp(5));
+            btnRow.addView(copyTok);
+            box.addView(infoCard);
+            box.addView(spacer(dp(8)));
+        }
+
+        // 客户端配置示例 (Claude Desktop)
+        TextView cfgTitle = new TextView(this);
+        cfgTitle.setText("Claude Desktop 配置示例");
+        cfgTitle.setTextColor(MdTheme.onSurface(this));
+        cfgTitle.setTextSize(13);
+        cfgTitle.setTypeface(Typeface.DEFAULT_BOLD);
+        cfgTitle.setPadding(0, dp(4), 0, dp(2));
+        box.addView(cfgTitle);
+        final TextView cfgTv = new TextView(this);
+        String cfg = "{\n  \"mcpServers\": {\n    \"taskpro\": {\n      \"url\": \"" + McpConfig.endpoint(this) + "\",\n      \"headers\": {\n        \"Authorization\": \"Bearer " + McpConfig.token(this) + "\"\n      }\n    }\n  }\n}";
+        cfgTv.setText(cfg);
+        cfgTv.setTextColor(MdTheme.onSurfaceVariant(this));
+        cfgTv.setTextSize(11);
+        cfgTv.setTypeface(Typeface.MONOSPACE);
+        cfgTv.setPadding(dp(8), dp(6), dp(8), dp(6));
+        android.graphics.drawable.GradientDrawable cfgBg = new android.graphics.drawable.GradientDrawable();
+        cfgBg.setColor(MdTheme.isDark(this) ? 0xFF141218 : 0xFFF5F3F7);
+        cfgBg.setCornerRadius(dp(8));
+        cfgTv.setBackground(cfgBg);
+        cfgTv.setTextIsSelectable(true);
+        box.addView(cfgTv);
+        TextView copyCfg = miniBtn("复制配置", false, new Runnable() {
+            public void run() {
+                android.content.ClipboardManager cm = (android.content.ClipboardManager)
+                        getSystemService(CLIPBOARD_SERVICE);
+                String cfg2 = "{\n  \"mcpServers\": {\n    \"taskpro\": {\n      \"url\": \"" + McpConfig.endpoint(AdvActivity.this) + "\",\n      \"headers\": {\n        \"Authorization\": \"Bearer " + McpConfig.token(AdvActivity.this) + "\"\n      }\n    }\n  }\n}";
+                cm.setPrimaryClip(android.content.ClipData.newPlainText("mcp_config", cfg2));
+                MdSnackbar.show(root, "已复制 Claude Desktop 配置");
+            }
+        });
+        copyCfg.setPadding(dp(10), dp(5), dp(10), dp(5));
+        copyCfg.setGravity(Gravity.END);
+        box.addView(copyCfg);
+
+        d.content(box);
+        d.action("关闭", new Runnable() { public void run() { d.dismiss(); } });
+        d.show();
+    }
+
     /** 检查 GitHub 最新发布版更新 */
     private void checkGitHubUpdate() {
         final String curVer = appVersion();

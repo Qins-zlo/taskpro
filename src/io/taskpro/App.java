@@ -7,6 +7,12 @@ public class App extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+        // 恢复 MCP 服务 (若用户已启用): 重启手机/进程被杀后自动拉起
+        try {
+            if (McpConfig.enabled(this) && !McpService.isRunning()) {
+                McpService.start(this);
+            }
+        } catch (Throwable ignored) { try { android.util.Log.w("TaskPro","mcp autostart: "+ignored.getMessage()); } catch(Exception __){} }
         Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
             @Override
             public void uncaughtException(Thread t, Throwable e) {

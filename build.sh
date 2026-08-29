@@ -12,7 +12,16 @@ D8JAR=/opt/android-sdk/build-tools/34.0.0/lib/d8.jar
 APKSIGNER=/opt/android-sdk/build-tools/34.0.0/lib/apksigner.jar
 ZALIGN=/root/taskpro_v732/zipalign.py
 KEYSTORE=$APP/taskrun.keystore
-
+# ── 安全: 构建期间注入的 token 必须无条件恢复 ──
+# 备份文件放在 /tmp (避免 rm -rf OUT 清掉); 用 trap 保证任何退出路径(含编译失败)都恢复源码
+TOKEN_BK=/tmp/Backend.java.bak.$$
+restore_backend() {
+  if [ -f "$TOKEN_BK" ]; then
+    cp "$TOKEN_BK" "$SRC/io/taskpro/Backend.java"
+    rm -f "$TOKEN_BK"
+    echo "  已恢复源码 (移除 token)"
+  fi
+}
 rm -rf $OUT $DEX 2>/dev/null; mkdir -p $OUT $DEX
 
 echo "[1/6] aapt2 compile"
@@ -37,9 +46,10 @@ $AAPT2 link -o $OUT/base.apk \
 echo "[3/6] javac"
 # 构建时注入 GitHub bot token: 从环境变量 GH_BOT_TOKEN 替换源码占位符
 # (保证公开仓库源码不含真实 token; 编译后自动恢复)
-BK=$OUT/Backend.java.bak
+BK=$TOKEN_BK
 if [ -n "$GH_BOT_TOKEN" ]; then
   cp $SRC/io/taskpro/Backend.java $BK
+  trap 'restore_backend' EXIT INT TERM HUP   # 任何退出路径都恢复, 防止 token 残留泄露
   sed -i "s/REPLACE_WITH_BUILD_INJECTED_TOKEN/$GH_BOT_TOKEN/g" $SRC/io/taskpro/Backend.java
   echo "  注入 GH_BOT_TOKEN (len=${#GH_BOT_TOKEN})"
 fi
@@ -47,12 +57,7 @@ find $SRC -name '*.java' > $OUT/sources.txt
 javac -d $DEX -cp $ANDROID_JAR -encoding UTF-8 \
   -source 11 -target 11 \
   @$OUT/sources.txt $GEN/io/taskpro/R.java 2>&1
-# 恢复源码 (移除注入的 token)
-if [ -f "$BK" ]; then
-  mv $BK $SRC/io/taskpro/Backend.java
-  echo "  已恢复源码 (移除 token)"
-fi
-
+restore_backend
 echo "[4/6] d8"
 java -cp $D8JAR com.android.tools.r8.D8 \
   --lib $ANDROID_JAR \
