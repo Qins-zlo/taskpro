@@ -134,6 +134,8 @@ public class AlarmReceiver extends BroadcastReceiver {
         TaskLog.append(app, logName, summary + "\n" + log.toString());
 
         if (ok) {
+            // 成功: 清理该任务名下的失败日志 (失败→自动重试→成功, 旧的失败日志不再残留)
+            try { TaskLog.removeFailedLogs(app, task.name); } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
             // 成功: 按设置决定是否通知
             if (Settings.notifyOnSuccess(app)) {
                 Notifier.post(app, task.name + " 执行成功", summary);

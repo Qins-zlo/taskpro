@@ -6101,6 +6101,9 @@ i.setType("text/plain");
                             Notifier.postOutput(ctx, tag + " 执行失败", out.toString(), code);
                         }
                     } else {
+                        // 成功: 清理该任务名下的失败日志 (失败→自动重试→成功, 旧的失败日志不再残留)
+                        // 日志条目名是 "[cron] " + tag, 需传完整前缀名才能匹配
+                        try { TaskLog.removeFailedLogs(ctx, "[cron] " + tag); } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
                         // 成功: 把脚本输出摘要推送到通知栏 (按设置, 默认开)
                         if (Settings.notifyScriptCron(ctx)) {
                             Notifier.postOutput(ctx, tag + " 执行完成", out.toString(), code);

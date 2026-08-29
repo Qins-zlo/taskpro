@@ -65,6 +65,54 @@ public class TaskLog {
         }
     }
 
+    /**
+     * 成功后清理失败日志: 删除指定任务名下的失败记录 (失败→自动重试→成功后, 旧的失败日志不再残留)
+     * taskNames: 可传多个名称变体 (如 task.name 与 task.name+"(重试)")
+     * 只删除"失败特征"的条目, 保留触发/开始/成功等正常日志
+     */
+    public static synchronized void removeFailedLogs(Context ctx, String... taskNames) {
+        SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        String raw = sp.getString(KEY, null);
+        if (raw == null) return;
+        try {
+            JSONArray arr = new JSONArray(raw);
+            JSONArray na = new JSONArray();
+            boolean changed = false;
+            for (int i = 0; i < arr.length(); i++) {
+                String e = arr.optString(i);
+                if (isFailedEntry(e, taskNames)) { changed = true; continue; }
+                na.put(e);
+            }
+            if (changed) {
+                sp.edit().putString(KEY, na.toString()).apply();
+                versionCounter++;   // 通知 UI 日志已清理
+            }
+        } catch (Exception ex) { try { android.util.Log.w("TaskPro","catch: "+ex.getMessage()); } catch(Exception __){} }
+    }
+
+    /** 判断单条日志是否属于指定任务名且为失败记录 */
+    private static boolean isFailedEntry(String entry, String[] taskNames) {
+        if (entry == null || taskNames == null || taskNames.length == 0) return false;
+        int nl = entry.indexOf('\n');
+        String head = nl > 0 ? entry.substring(0, nl) : entry;
+        int br = head.indexOf(']');
+        String task = br > 0 ? head.substring(br + 1).trim() : head.trim();
+        // 匹配任一任务名变体 (精确 或 带"(重试)"后缀)
+        boolean nameMatch = false;
+        for (String tn : taskNames) {
+            if (tn == null || tn.isEmpty()) continue;
+            if (task.equals(tn) || task.startsWith(tn + "(重试)")) { nameMatch = true; break; }
+        }
+        if (!nameMatch) return false;
+        String body = nl > 0 ? entry.substring(nl + 1) : "";
+        if (body == null) return false;
+        // 失败特征: 明确的失败/退出码非0/超时/网络顺延/异常
+        if (body.contains("执行失败")) return true;
+        if (body.contains("退出码") && !body.contains("退出码 0")) return true;
+        if (body.contains("超时") || body.contains("网络不可用, 顺延") || body.contains("异常:")) return true;
+        return false;
+    }
+
     /** 单条日志条目 */
     public static class Entry {
         public String ts;      // 时间戳 MM-dd HH:mm:ss
