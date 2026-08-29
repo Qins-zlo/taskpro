@@ -74,7 +74,11 @@ public class McpService extends Service {
         }
         try {
             startForeground(1, notif("MCP 服务运行中 · 端口 " + McpConfig.port(this)));
-
+        } catch (Exception e) {
+            // 部分 ROM 限制 dataSync 类型前台服务: 降级为普通服务, 不影响 MCP 功能
+            try { android.util.Log.w("TaskPro","MCP fgs warn: "+e.toString()); } catch(Exception __){}
+        }
+        try {
             // 构造并启动服务器 (幂等)
             if (server == null || !server.isRunning()) {
                 server = new McpServer(this, McpConfig.port(this), McpConfig.token(this));

@@ -4738,6 +4738,82 @@ i.setType("text/plain");
 
     // 构建脚本执行命令: sh 脚本先经 rewriteScript 重写(/tmp 映射 + curl 重写), 写入 files/tmp 临时文件
     // 路径一律单引号包裹, 兼容含空格/括号/特殊字符的文件名
+    // ═══════════════ 同步执行脚本 (供 MCP 等外部调用) ═══════════════
+    /**
+     * 同步执行脚本并返回完整输出 (阻塞直到结束或超时)。
+     * 供 MCP 服务器 run_script 工具调用, 让外部 AI 能拿到执行结果日志。
+     * 返回格式: 退出码 + 完整 stdout/stderr。
+     */
+    public static String runScriptSync(Context ctx, String scriptName) {
+        if (scriptName == null || ScriptStore.isMetaFile(scriptName)) {
+            return "[跳过] 配置类文件: " + scriptName;
+        }
+        final String content = ScriptStore.read(ctx, scriptName);
+        if (content.isEmpty()) return "[失败] 脚本不存在: " + scriptName;
+        final String type = ScriptStore.typeOf(scriptName);
+        try {
+            if (!RuntimeManager.isReady(ctx)) {
+                boolean ok = RuntimeManager.ensureReady(ctx, null);
+                if (!ok) return "[失败] 运行时未就绪, 无法执行";
+            }
+            final StringBuilder out = new StringBuilder();
+            String scriptCmd = buildScriptCommand(ctx, scriptName, content, type);
+            ProcessBuilder pb = new ProcessBuilder("/system/bin/sh", "-c",
+                    RuntimeManager.buildCommand(ctx, scriptCmd));
+            pb.directory(new java.io.File(ctx.getFilesDir(), ""));
+            try {
+                java.util.Map<String, String> conf = ScriptStore.confOf(ctx, scriptName);
+                if (conf != null && !conf.isEmpty()) pb.environment().putAll(conf);
+            } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
+            Process p = pb.start();
+            ScriptRunner.markRunning(scriptName);
+            ScriptRunner.attachProcess(scriptName, p);
+            ScriptRunner.sweep();
+            Thread rt1 = new Thread(new Runnable() {
+                public void run() {
+                    try {
+                        BufferedReader r = new BufferedReader(new InputStreamReader(p.getInputStream(), "UTF-8"));
+                        String l; while ((l = r.readLine()) != null) out.append(l).append("\n");
+                    } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
+                }
+            });
+            Thread rt2 = new Thread(new Runnable() {
+                public void run() {
+                    try {
+                        BufferedReader r = new BufferedReader(new InputStreamReader(p.getErrorStream(), "UTF-8"));
+                        String l; while ((l = r.readLine()) != null) out.append("! ").append(l).append("\n");
+                    } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
+                }
+            });
+            rt1.start(); rt2.start();
+            int code;
+            long toSec = 180L;
+            try { toSec = ScriptStore.getTimeout(ctx, scriptName); } catch (Exception ignored) { try { android.util.Log.w("TaskPro","catch: "+ignored.getMessage()); } catch(Exception __){} }
+            if (toSec < 1) toSec = 180L;
+            try {
+                if (!p.waitFor(toSec, java.util.concurrent.TimeUnit.SECONDS)) {
+                    p.destroy();
+                    out.append("! 超时(" + toSec + "s), 已终止\n");
+                    code = 124;
+                } else {
+                    code = p.exitValue();
+                }
+            } catch (InterruptedException ie) {
+                p.destroy();
+                code = 124;
+            }
+            rt1.join(2000); rt2.join(2000);
+            ScriptRunner.markDone(scriptName);
+            // 记录到历史日志, 便于 App 内查看
+            TaskLog.append(ctx, "[mcp] " + scriptName, "退出码 " + code + "\n" + out.toString());
+            Stats.record(ctx, code == 0);
+            return "退出码 " + code + ":\n" + out.toString().trim();
+        } catch (Exception e) {
+            ScriptRunner.markDone(scriptName);
+            return "[异常] " + e.toString();
+        }
+    }
+
     private static String buildScriptCommand(Context ctx, String name, String content, String type) {
         String scriptPath = new java.io.File(ScriptStore.dir(ctx), name).getAbsolutePath();
         if ("py".equals(type)) return RuntimeManager.pythonBin(ctx) + " '" + scriptPath + "'";

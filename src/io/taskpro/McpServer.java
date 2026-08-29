@@ -232,7 +232,7 @@ public class McpServer {
         arr.put(toolDef("read_script", "读取脚本内容", "{\"name\":\"脚本名\"}"));
         arr.put(toolDef("write_script", "写入/创建脚本", "{\"name\":\"脚本名\",\"content\":\"脚本内容\"}"));
         arr.put(toolDef("delete_script", "删除脚本", "{\"name\":\"脚本名\"}"));
-        arr.put(toolDef("run_script", "执行脚本(异步, 记录到日志)", "{\"name\":\"脚本名\"}"));
+        arr.put(toolDef("run_script", "同步执行脚本并返回完整执行日志 (等待执行结束, 返回 stdout/stderr)", "{\"name\":\"脚本名\"}"));
         // ---- 环境变量 ----
         arr.put(toolDef("list_env", "列出环境变量(不显示敏感值)", "[]"));
         arr.put(toolDef("get_env", "读取环境变量值", "{\"name\":\"变量名\"}"));
@@ -240,6 +240,7 @@ public class McpServer {
         arr.put(toolDef("delete_env", "删除环境变量", "{\"name\":\"变量名\"}"));
         // ---- 日志/统计 ----
         arr.put(toolDef("read_logs", "读取执行日志", "{\"count\":20}"));
+        arr.put(toolDef("read_script_log", "读取指定脚本最近的执行日志", "{\"name\":\"脚本名\",\"count\":20}"));
         arr.put(toolDef("clear_logs", "清空日志", "[]"));
         arr.put(toolDef("get_stats", "获取最近N天执行统计", "{\"days\":7}"));
         // ---- 命令执行 ----
@@ -279,6 +280,7 @@ public class McpServer {
             if ("set_env".equals(name)) return setEnv(args.optString("name", ""), args.optString("value", ""), args.optString("remark", ""));
             if ("delete_env".equals(name)) return deleteEnv(args.optString("name", ""));
             if ("read_logs".equals(name)) return readLogs(args.optInt("count", 20));
+            if ("read_script_log".equals(name)) return readScriptLog(args.optString("name", ""), args.optInt("count", 20));
             if ("clear_logs".equals(name)) return clearLogs();
             if ("get_stats".equals(name)) return getStats(args.optInt("days", 7));
             if ("run_command".equals(name)) return runCommand(args.optString("cmd", ""), args.optInt("timeout", 30));
@@ -461,16 +463,8 @@ public class McpServer {
 
     private String runScript(String name) {
         if (!ScriptStore.exists(ctx, name)) return "脚本不存在: " + name;
-        new Thread(new Runnable() {
-            public void run() {
-                try {
-                    AdvActivity.runScriptByName(ctx, name, "[mcp] " + name, -1);
-                } catch (Exception e) {
-                    TaskLog.append(ctx, "[mcp] " + name, "执行异常: " + e.toString());
-                }
-            }
-        }).start();
-        return "脚本已触发执行 (记录到日志): " + name;
+        // 同步执行并返回完整日志 (外部 AI 需要看到执行结果)
+        return AdvActivity.runScriptSync(ctx, name);
     }
 
     // ---------- 环境变量 ----------
@@ -536,6 +530,28 @@ public class McpServer {
         int n = Math.min(count, entries.length);
         for (int i = entries.length - n; i < entries.length; i++) {
             sb.append(entries[i]).append("\n\n");
+        }
+return sb.toString().trim();
+    }
+
+    /** 读取指定脚本最近的执行日志 (按日志条目的任务名匹配) */
+    private String readScriptLog(String name, int count) {
+        if (name == null || name.isEmpty()) return "错误: name 不能为空";
+        if (count <= 0) count = 20;
+        if (count > 50) count = 50;
+        java.util.List<TaskLog.Entry> all = TaskLog.listEntries(ctx);
+        java.util.List<TaskLog.Entry> matched = new java.util.ArrayList<TaskLog.Entry>();
+        for (TaskLog.Entry en : all) {
+            if (en.task != null && en.task.contains(name)) matched.add(en);
+        }
+        if (matched.isEmpty()) return "没有找到 " + name + " 的执行日志";
+        StringBuilder sb = new StringBuilder("「" + name + "」最近的执行日志 (" + matched.size() + " 条):\n");
+        int n = Math.min(count, matched.size());
+        for (int i = matched.size() - n; i < matched.size(); i++) {
+            TaskLog.Entry en = matched.get(i);
+            sb.append("[").append(en.ts).append("] ").append(en.task)
+                    .append(en.ok ? " (成功)" : " (失败)").append("\n")
+                    .append(en.body == null ? "" : en.body).append("\n\n");
         }
         return sb.toString().trim();
     }
